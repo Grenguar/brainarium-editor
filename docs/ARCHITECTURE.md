@@ -104,6 +104,10 @@ Runs off the renderer thread. It parses metadata and links, builds folder/docume
 
 MVP keeps the index in memory and may persist a versioned JSON snapshot under app data. Avoid a native SQLite dependency before it provides measured value. Full-text search or large-vault pressure can justify SQLite/Rust later.
 
+### Optional Graphify adapter
+
+Graphify-rs is an optional, user-installed analysis CLI rather than Brainarium's primary index. The main process may run its deterministic `--no-llm` build for the active vault and store its JSON/report output beneath app data. Brainarium does not invoke Graphify's semantic extraction, ingestion, watcher, or MCP server. Its generated graph is a future analysis view; Brainarium's own deterministic Markdown link index remains the source of navigation/backlinks.
+
 ### Watcher
 
 Normalizes create/change/delete/rename events and debounces noisy sequences. On resume, watcher error, and a periodic interval, compare directory metadata with the index. Network/removable volumes can miss native events, so correctness cannot rely on notifications alone.

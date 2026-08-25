@@ -1,8 +1,9 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
 
+import { GraphifyService } from "./graphify/graphify-service";
 import { RecentVaultStore } from "./vault/recent-vaults";
 import { scanVault } from "./vault/vault-scanner";
-import { readVaultDocument } from "./vault/vault-reader";
+import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -11,6 +12,12 @@ let activeVault: Awaited<ReturnType<typeof scanVault>> | undefined;
 
 const recentVaults = (): RecentVaultStore =>
   new RecentVaultStore(app.getPath("userData") + "/recent-vaults.json");
+
+const graphify = (): GraphifyService =>
+  new GraphifyService(
+    process.env.BRAINARIUM_GRAPHIFY_BIN ?? "graphify-rs",
+    app.getPath("userData") + "/graphify",
+  );
 
 async function openVault(
   vaultPath: string,
@@ -76,6 +83,21 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "document:save",
+  async (_event, input: unknown): Promise<unknown> => {
+    if (!activeVault || !isSaveInput(input)) {
+      throw new Error("No valid document save is available.");
+    }
+    return saveVaultDocument(activeVault, input);
+  },
+);
+
+ipcMain.handle("graphify:build", async (): Promise<unknown> => {
+  if (!activeVault) throw new Error("Open a vault before building its graph.");
+  return graphify().build(activeVault);
+});
+
+ipcMain.handle(
   "document:read",
   async (_event, relativePath: unknown): Promise<unknown> => {
     if (typeof relativePath !== "string" || !activeVault) {
@@ -111,3 +133,13 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+
+function isSaveInput(
+  value: unknown,
+): value is { baseVersion: string; relativePath: string; text: string } {
+  if (!value || typeof value !== "object") return false;
+  const input = value as Record<string, unknown>;
+  return ["baseVersion", "relativePath", "text"].every(
+    (key) => typeof input[key] === "string",
+  );
+}

@@ -330,6 +330,73 @@ h1 {
   white-space: pre-wrap;
 }
 
+.reading-table-wrap,
+.csv-preview-scroll {
+  border: 1px solid #c7c5ba;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.markdown-reading table,
+.csv-preview-table {
+  border-collapse: collapse;
+  font-family: "Avenir Next", Avenir, sans-serif;
+  font-size: 0.86rem;
+  min-width: 100%;
+  white-space: nowrap;
+}
+
+.markdown-reading th,
+.markdown-reading td,
+.csv-preview-table th,
+.csv-preview-table td {
+  border-bottom: 1px solid #d2cfc4;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-reading th,
+.csv-preview-table th {
+  background: #e0ddd2;
+  color: #273330;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+}
+
+.csv-preview-table td {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-preview-empty {
+  color: #68716c;
+}
+
+.document-editor {
+  background: #f6f3e9;
+  border: 1px solid #c7c5ba;
+  border-left: 3px solid #d86d45;
+  box-sizing: border-box;
+  color: #273330;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  min-height: 65vh;
+  padding: 1.5rem;
+  resize: vertical;
+  width: min(100%, 55rem);
+}
+
+.document-editor:focus {
+  outline: 2px solid #d86d45;
+  outline-offset: 2px;
+}
+
 .markdown-reading {
   color: #2f3936;
   font-family: Georgia, "Times New Roman", serif;

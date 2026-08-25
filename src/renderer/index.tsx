@@ -8,6 +8,8 @@ import type {
   VaultTreeNode,
 } from "../shared/contracts/vault";
 
+import { CsvPreview } from "./csv-preview";
+
 import "./styles.css";
 
 const TreeNode = ({
@@ -17,7 +19,7 @@ const TreeNode = ({
   node: VaultTreeNode;
   onSelect: (relativePath: string) => void;
 }): React.JSX.Element => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(node.relativePath === "");
   if (node.kind !== "directory") {
     const icon =
       node.kind === "csv"
@@ -69,7 +71,7 @@ const TreeNode = ({
 
 const renderInline = (text: string): ReactNode[] => {
   const parts = text.split(
-    /(\[[^\]]+\]\([^\s)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g,
+    /(\[[^\]]+\]\([^\s)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|_[^_]+_)/g,
   );
   return parts.filter(Boolean).map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) {
@@ -78,7 +80,10 @@ const renderInline = (text: string): ReactNode[] => {
     if (part.startsWith("`") && part.endsWith("`")) {
       return <code key={index}>{part.slice(1, -1)}</code>;
     }
-    if (part.startsWith("*") && part.endsWith("*")) {
+    if (
+      (part.startsWith("*") && part.endsWith("*")) ||
+      (part.startsWith("_") && part.endsWith("_"))
+    ) {
       return <em key={index}>{part.slice(1, -1)}</em>;
     }
     const link = /^\[([^\]]+)\]\(([^\s)]+)\)$/.exec(part);
@@ -154,6 +159,50 @@ const MarkdownReading = ({ source }: { source: string }): React.JSX.Element => {
       cursor += 1;
       continue;
     }
+    if (
+      line.includes("|") &&
+      cursor + 1 < lines.length &&
+      /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(
+        lines[cursor + 1],
+      )
+    ) {
+      const tableLines = [line];
+      cursor += 2;
+      while (cursor < lines.length && lines[cursor].includes("|"))
+        tableLines.push(lines[cursor++]);
+      const cells = (tableLine: string) =>
+        tableLine
+          .trim()
+          .replace(/^\||\|$/g, "")
+          .split("|")
+          .map((cell) => cell.trim());
+      const [header, ...rows] = tableLines.map(cells);
+      blocks.push(
+        <div className="reading-table-wrap" key={cursor}>
+          <table>
+            <thead>
+              <tr>
+                {header.map((cell, index) => (
+                  <th key={index}>{renderInline(cell)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {header.map((_cell, cellIndex) => (
+                    <td key={cellIndex}>
+                      {renderInline(row[cellIndex] ?? "")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
     const paragraph: string[] = [];
     while (
       cursor < lines.length &&
@@ -173,7 +222,11 @@ const App = (): React.JSX.Element => {
   const [isChoosing, setIsChoosing] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<"reading" | "source">("reading");
+  const [viewMode, setViewMode] = useState<"preview" | "editor">("preview");
+  const [editorText, setEditorText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isBuildingGraph, setIsBuildingGraph] = useState(false);
+  const [graphStatus, setGraphStatus] = useState<string>();
   const [error, setError] = useState<string>();
 
   const refreshRecents = async (): Promise<void> => {
@@ -192,6 +245,7 @@ const App = (): React.JSX.Element => {
       if (!result.cancelled) {
         setSnapshot(result.snapshot);
         setDocument(undefined);
+        setEditorText("");
         setCopied(false);
         await refreshRecents();
       }
@@ -209,6 +263,7 @@ const App = (): React.JSX.Element => {
     try {
       setSnapshot(await window.brainarium.openRecentVault(id));
       setDocument(undefined);
+      setEditorText("");
       setCopied(false);
       await refreshRecents();
     } catch {
@@ -219,12 +274,54 @@ const App = (): React.JSX.Element => {
   const readDocument = async (relativePath: string): Promise<void> => {
     setError(undefined);
     try {
-      setDocument(await window.brainarium.readDocument(relativePath));
+      const nextDocument = await window.brainarium.readDocument(relativePath);
+      setDocument(nextDocument);
+      setEditorText(nextDocument.text);
       setCopied(false);
     } catch {
       setError(
         "Brainarium could not read that file. It may have changed outside the vault.",
       );
+    }
+  };
+
+  const saveDocument = async (): Promise<void> => {
+    if (!document || document.kind !== "markdown") return;
+    setIsSaving(true);
+    setError(undefined);
+    try {
+      const saved = await window.brainarium.saveDocument({
+        baseVersion: document.version,
+        relativePath: document.relativePath,
+        text: editorText,
+      });
+      setDocument(saved);
+      setEditorText(saved.text);
+    } catch {
+      setError(
+        "Brainarium could not save this file. It may have changed outside the app.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const buildGraph = async (): Promise<void> => {
+    setIsBuildingGraph(true);
+    setGraphStatus(undefined);
+    try {
+      const graph = await window.brainarium.buildGraph();
+      setGraphStatus(
+        graph.nodeCount > 0
+          ? `Local graph built with ${graph.nodeCount} nodes. Graph explorer is the next workspace view.`
+          : "Graphify completed, but its no-LLM build found no graph nodes in this text vault.",
+      );
+    } catch {
+      setGraphStatus(
+        "Graphify is unavailable. Install graphify-rs or set BRAINARIUM_GRAPHIFY_BIN, then try again.",
+      );
+    } finally {
+      setIsBuildingGraph(false);
     }
   };
 
@@ -236,6 +333,7 @@ const App = (): React.JSX.Element => {
     try {
       await window.brainarium.copyDocumentContent(document.relativePath);
       setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
     } catch {
       setError("Brainarium could not copy that file. Try opening it again.");
     } finally {
@@ -258,6 +356,14 @@ const App = (): React.JSX.Element => {
             >
               Open another vault
             </button>
+            <button
+              type="button"
+              onClick={() => void buildGraph()}
+              disabled={isBuildingGraph}
+            >
+              {isBuildingGraph ? "Building graph…" : "Build local graph"}
+            </button>
+            {graphStatus && <p className="graph-status">{graphStatus}</p>}
           </div>
           <section className="vault-tree" aria-label="Vault files">
             <p className="section-label">FILES</p>
@@ -299,20 +405,33 @@ const App = (): React.JSX.Element => {
                       aria-label="Document view"
                     >
                       <button
-                        className={viewMode === "reading" ? "active" : ""}
+                        aria-label="Preview"
+                        className={viewMode === "preview" ? "active" : ""}
+                        title="Preview"
                         type="button"
-                        onClick={() => setViewMode("reading")}
+                        onClick={() => setViewMode("preview")}
                       >
-                        Preview
+                        ◉
                       </button>
                       <button
-                        className={viewMode === "source" ? "active" : ""}
+                        aria-label="Editor"
+                        className={viewMode === "editor" ? "active" : ""}
+                        title="Editor"
                         type="button"
-                        onClick={() => setViewMode("source")}
+                        onClick={() => setViewMode("editor")}
                       >
-                        Source
+                        {"</>"}
                       </button>
                     </div>
+                  )}
+                  {document.kind === "markdown" && viewMode === "editor" && (
+                    <button
+                      type="button"
+                      onClick={() => void saveDocument()}
+                      disabled={isSaving || editorText === document.text}
+                    >
+                      {isSaving ? "Saving…" : "Save"}
+                    </button>
                   )}
                   <button
                     type="button"
@@ -320,15 +439,25 @@ const App = (): React.JSX.Element => {
                     disabled={isCopying}
                   >
                     {copied
-                      ? "Copied"
+                      ? "Copied!"
                       : isCopying
                         ? "Copying…"
                         : "Copy file content"}
                   </button>
                 </div>
               </header>
-              {document.kind === "markdown" && viewMode === "reading" ? (
+              {document.kind === "markdown" && viewMode === "preview" ? (
                 <MarkdownReading source={document.text} />
+              ) : document.kind === "markdown" ? (
+                <textarea
+                  aria-label="Markdown editor"
+                  className="document-editor"
+                  value={editorText}
+                  onChange={(event) => setEditorText(event.target.value)}
+                  spellCheck
+                />
+              ) : document.kind === "csv" ? (
+                <CsvPreview source={document.text} />
               ) : (
                 <pre className="document-source">{document.text}</pre>
               )}

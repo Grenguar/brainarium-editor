@@ -21,6 +21,10 @@ The selected directory is the vault. Main-process file operations resolve a real
 
 Saves use same-directory temporary replacement where supported and leave either the complete old or complete new file after interruption. Periodic reconciliation is the watcher-correctness backstop.
 
+## Optional Graphify graph build
+
+Brainarium may invoke a user-installed `graphify-rs` binary only after an explicit user action for the active vault. The initial adapter runs `build --no-llm --format json,report`, passes the canonical active-vault path, and writes all derived graph output under app data rather than inside the vault. The process receives only `PATH` and `HOME`; no provider credentials are inherited. Graphify's optional LLM extraction, URL ingestion, watch mode, and arbitrary MCP tools are outside this integration. A missing binary fails visibly and never changes vault content.
+
 ## Agent safety and protocol
 
 The main process starts `codex app-server` over JSONL stdio, keeps protocol stdout separate from redacted stderr diagnostics, scopes cwd to the active vault, and passes an explicit environment allowlist. It initializes before a thread/turn and normalizes native events. A native patch or tool request is never applied directly: it becomes a bounded `WorkspaceEdit`, is path/version-validated, and is shown as a proposal/diff.

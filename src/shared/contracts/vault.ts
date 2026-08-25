@@ -40,6 +40,7 @@ export type VaultDocumentContent = Pick<
   "kind" | "relativePath" | "title"
 > & {
   text: string;
+  version: string;
 };
 
 export type RecentVault = {
