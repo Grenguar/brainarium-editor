@@ -122,7 +122,7 @@ Electron is the quickest requested shell, provided the renderer stays sandboxed 
 
 Tauri v2 uses a Rust core and OS webview, with capability-scoped filesystem and sidecar access: [Architecture](https://v2.tauri.app/concept/architecture/), [Capabilities](https://v2.tauri.app/security/capabilities/), [Filesystem](https://v2.tauri.app/plugin/file-system/), [Sidecars](https://v2.tauri.app/develop/sidecar/).
 
-Recommendation: choose Tauri instead of Electron if owning the core in Rust and binary size are stronger requirements than fastest Electron delivery. Do not combine Electron and custom Rust in v1 without a measured indexing/search need.
+Original recommendation: choose Tauri instead of Electron if owning the core in Rust and binary size are stronger requirements than fastest Electron delivery. This was superseded for the narrowly scoped, deterministic vault graph by [ADR-002](adr/002-rust-vault-link-graph.md); Electron remains the shell and Rust has no document-write authority.
 
 ## macOS file/distribution considerations
 

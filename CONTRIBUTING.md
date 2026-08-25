@@ -8,9 +8,10 @@ processes as their source changes. Quit the application or press `Ctrl+C` in
 the terminal to stop the loop.
 
 Use `npm run test:watch` while changing unit-tested code. The full local
-quality gate is `npm run format:check && npm run lint && npm run typecheck &&
-npm test && npm run build`; run affected integration or end-to-end tests when
-they are introduced.
+quality gate is `npm run quality`, which runs format, lint, type check, the complete
+TypeScript and Rust test suites, strict Rust Clippy, and the production package.
+Run affected integration or end-to-end tests when they are introduced. `npm run
+dev` and `npm run build` compile the packaged Rust indexer automatically.
 
 ## Required pull-request tags
 

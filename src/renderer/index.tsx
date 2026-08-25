@@ -1,5 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import forceAtlas2 from "graphology-layout-forceatlas2";
+import Graph from "graphology";
+import Sigma from "sigma";
 
 import type {
   RecentVault,
@@ -244,80 +247,166 @@ const MarkdownReading = ({
   return <article className="markdown-reading">{blocks}</article>;
 };
 
-const LinkGraphPreview = ({
+const graphScope = (
+  graph: VaultLinkGraph,
+  center: string | undefined,
+  depth: number,
+): VaultLinkGraph => {
+  if (!center) return graph;
+  const neighbours = new Map<string, Set<string>>();
+  for (const edge of graph.edges) {
+    const source = neighbours.get(edge.source) ?? new Set<string>();
+    source.add(edge.target);
+    neighbours.set(edge.source, source);
+    const target = neighbours.get(edge.target) ?? new Set<string>();
+    target.add(edge.source);
+    neighbours.set(edge.target, target);
+  }
+  const included = new Set([center]);
+  let frontier = new Set([center]);
+  for (let currentDepth = 0; currentDepth < depth; currentDepth += 1) {
+    const next = new Set<string>();
+    for (const node of frontier) {
+      for (const neighbour of neighbours.get(node) ?? []) {
+        if (!included.has(neighbour)) {
+          included.add(neighbour);
+          next.add(neighbour);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return {
+    edges: graph.edges.filter(
+      (edge) => included.has(edge.source) && included.has(edge.target),
+    ),
+    nodes: graph.nodes.filter((node) => included.has(node.relativePath)),
+  };
+};
+
+const SigmaGraphPreview = ({
   graph,
+  query,
   onOpenDocument,
 }: {
   graph: VaultLinkGraph;
+  query: string;
   onOpenDocument: (relativePath: string) => void;
 }): React.JSX.Element => {
-  const columns = Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length)));
-  const rows = Math.max(1, Math.ceil(graph.nodes.length / columns));
-  const positions = new Map(
-    graph.nodes.map((node, index) => {
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      const x = ((column + 0.5) / columns) * 1000;
-      const y = ((row + 0.5) / rows) * 600;
-      return [
-        node.relativePath,
-        { left: (x / 1000) * 100, top: (y / 600) * 100, x, y },
-      ];
-    }),
-  );
-  const connected = new Set(
-    graph.edges.flatMap((edge) => [edge.source, edge.target]),
-  );
+  const containerRef = useRef<HTMLDivElement>(null);
+  const openDocumentRef = useRef(onOpenDocument);
+
+  useEffect(() => {
+    openDocumentRef.current = onOpenDocument;
+  }, [onOpenDocument]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const search = query.trim().toLocaleLowerCase();
+    const visible = new Set(
+      graph.nodes
+        .filter(
+          (node) =>
+            !search ||
+            node.title.toLocaleLowerCase().includes(search) ||
+            node.relativePath.toLocaleLowerCase().includes(search),
+        )
+        .map((node) => node.relativePath),
+    );
+    const displayGraph = new Graph({ type: "directed" });
+    const degrees = new Map<string, number>();
+    for (const edge of graph.edges) {
+      degrees.set(edge.source, (degrees.get(edge.source) ?? 0) + 1);
+      degrees.set(edge.target, (degrees.get(edge.target) ?? 0) + 1);
+    }
+    graph.nodes.forEach((node, index) => {
+      const angle = index * 2.399963229728653;
+      const radius = Math.sqrt(index + 1);
+      const degree = degrees.get(node.relativePath) ?? 0;
+      displayGraph.addNode(node.relativePath, {
+        color: degree > 0 ? "#d86d45" : "#9aa39d",
+        forceLabel: degree > 3,
+        hidden: !visible.has(node.relativePath),
+        label: node.title,
+        size: Math.min(9, 2.7 + Math.sqrt(degree) * 1.2),
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+      });
+    });
+    graph.edges.forEach((edge, index) => {
+      if (
+        displayGraph.hasNode(edge.source) &&
+        displayGraph.hasNode(edge.target)
+      ) {
+        displayGraph.addDirectedEdgeWithKey(
+          `${edge.source}\u0000${edge.target}\u0000${index}`,
+          edge.source,
+          edge.target,
+          { color: "#b57a65", size: 1 },
+        );
+      }
+    });
+    if (displayGraph.order > 1 && displayGraph.size > 0) {
+      forceAtlas2.assign(displayGraph, {
+        iterations: Math.min(180, Math.max(45, displayGraph.order * 4)),
+        settings: {
+          barnesHutOptimize: displayGraph.order > 120,
+          gravity: 1,
+          scalingRatio: 2.2,
+          slowDown: 2,
+          strongGravityMode: true,
+        },
+      });
+    }
+    const renderer = new Sigma(displayGraph, container, {
+      defaultEdgeColor: "#b57a65",
+      defaultNodeColor: "#9aa39d",
+      labelColor: { color: "#273330" },
+      labelDensity: 0.7,
+      labelFont: "Avenir Next, Avenir, sans-serif",
+      labelRenderedSizeThreshold: 8,
+      labelSize: 13,
+      stagePadding: 44,
+      zIndex: true,
+    });
+    renderer.on("clickNode", ({ node }) => openDocumentRef.current(node));
+    renderer.on("enterNode", ({ node }) => {
+      const related = new Set([...displayGraph.neighbors(node), node]);
+      displayGraph.forEachNode((key) => {
+        displayGraph.setNodeAttribute(
+          key,
+          "color",
+          related.has(key) ? "#d86d45" : "#c3c7c1",
+        );
+      });
+      renderer.refresh();
+    });
+    renderer.on("leaveNode", () => {
+      displayGraph.forEachNode((key) => {
+        displayGraph.setNodeAttribute(
+          key,
+          "color",
+          (degrees.get(key) ?? 0) > 0 ? "#d86d45" : "#9aa39d",
+        );
+      });
+      renderer.refresh();
+    });
+    return () => renderer.kill();
+  }, [graph, query]);
 
   return (
     <figure className="vault-graph">
-      <div className="vault-graph-canvas">
-        <svg
-          aria-hidden="true"
-          className="vault-graph-lines"
-          viewBox="0 0 1000 600"
-        >
-          {graph.edges.map((edge) => {
-            const source = positions.get(edge.source);
-            const target = positions.get(edge.target);
-            if (!source || !target) return null;
-            return (
-              <line
-                key={`${edge.source}-${edge.target}`}
-                x1={source.x}
-                x2={target.x}
-                y1={source.y}
-                y2={target.y}
-              />
-            );
-          })}
-        </svg>
-        {graph.nodes.map((node) => {
-          const position = positions.get(node.relativePath);
-          if (!position) return null;
-          return (
-            <button
-              className={
-                connected.has(node.relativePath)
-                  ? "graph-node linked"
-                  : "graph-node"
-              }
-              key={node.relativePath}
-              style={{ left: `${position.left}%`, top: `${position.top}%` }}
-              title={`Open ${node.relativePath}`}
-              type="button"
-              onClick={() => onOpenDocument(node.relativePath)}
-            >
-              <span aria-hidden="true" />
-              <span>{node.title}</span>
-            </button>
-          );
-        })}
-      </div>
+      <div
+        aria-label="Vault link graph"
+        className="vault-graph-canvas"
+        ref={containerRef}
+        role="application"
+      />
       <figcaption>
         {graph.edges.length === 0
           ? "No resolved wiki-links yet. Add [[a-note]] links to connect notes."
-          : "Each line is a resolved wiki-link. Select a note to open it."}
+          : "Drag to explore, scroll to zoom, and select a note to open it."}
       </figcaption>
     </figure>
   );
@@ -359,13 +448,14 @@ const App = (): React.JSX.Element => {
   const [viewMode, setViewMode] = useState<"preview" | "editor">("preview");
   const [editorText, setEditorText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [isBuildingGraph, setIsBuildingGraph] = useState(false);
   const [isLoadingLinkGraph, setIsLoadingLinkGraph] = useState(false);
   const [linkGraph, setLinkGraph] = useState<VaultLinkGraph>();
-  const [graphStatus, setGraphStatus] = useState<string>();
   const [workspaceView, setWorkspaceView] = useState<"document" | "graph">(
     "document",
   );
+  const [graphMode, setGraphMode] = useState<"global" | "local">("global");
+  const [graphQuery, setGraphQuery] = useState("");
+  const [localGraphDepth, setLocalGraphDepth] = useState(1);
   const [isFindOpen, setIsFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
@@ -373,9 +463,12 @@ const App = (): React.JSX.Element => {
   const [vaultSearchResults, setVaultSearchResults] = useState<
     VaultSearchResult[]
   >([]);
+  const [externalChangeNotice, setExternalChangeNotice] = useState<string>();
   const [isVaultSearchOpen, setIsVaultSearchOpen] = useState(false);
   const [error, setError] = useState<string>();
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const documentRef = useRef<VaultDocumentContent | undefined>(undefined);
+  const editorTextRef = useRef("");
   const findPositionsInDocument = document
     ? findPositions(editorText, findQuery)
     : [];
@@ -387,6 +480,67 @@ const App = (): React.JSX.Element => {
   useEffect(() => {
     void refreshRecents();
   }, []);
+
+  useEffect(() => {
+    documentRef.current = document;
+    editorTextRef.current = editorText;
+  }, [document, editorText]);
+
+  useEffect(
+    () =>
+      window.brainarium.onVaultChanged((nextSnapshot) => {
+        setSnapshot(nextSnapshot);
+        const openDocument = documentRef.current;
+        if (!openDocument) return;
+        const stillExists = nextSnapshot.documents.some(
+          (candidate) => candidate.relativePath === openDocument.relativePath,
+        );
+        if (!stillExists) {
+          setDocument(undefined);
+          setEditorText("");
+          setExternalChangeNotice(
+            "The open file was removed outside Brainarium.",
+          );
+          return;
+        }
+        if (
+          openDocument.kind === "markdown" &&
+          editorTextRef.current !== openDocument.text
+        ) {
+          setExternalChangeNotice(
+            "This file changed outside Brainarium. Your unsaved editor changes were kept.",
+          );
+          return;
+        }
+        void window.brainarium
+          .readDocument(openDocument.relativePath)
+          .then((freshDocument) => {
+            if (
+              documentRef.current?.relativePath ===
+                freshDocument.relativePath &&
+              editorTextRef.current === documentRef.current.text
+            ) {
+              setDocument(freshDocument);
+              setEditorText(freshDocument.text);
+              setExternalChangeNotice(undefined);
+            }
+          })
+          .catch(() => {
+            setExternalChangeNotice(
+              "The open file changed before Brainarium could refresh it.",
+            );
+          });
+      }),
+    [],
+  );
+
+  useEffect(
+    () =>
+      window.brainarium.onVaultGraphChanged((freshGraph) => {
+        setLinkGraph(freshGraph);
+      }),
+    [],
+  );
 
   const chooseVault = async (): Promise<void> => {
     setIsChoosing(true);
@@ -401,6 +555,7 @@ const App = (): React.JSX.Element => {
         setFindQuery("");
         setLinkGraph(undefined);
         setWorkspaceView("document");
+        setExternalChangeNotice(undefined);
         await refreshRecents();
       }
     } catch {
@@ -422,6 +577,7 @@ const App = (): React.JSX.Element => {
       setFindQuery("");
       setLinkGraph(undefined);
       setWorkspaceView("document");
+      setExternalChangeNotice(undefined);
       await refreshRecents();
     } catch {
       setError("That vault is unavailable. Choose another folder to continue.");
@@ -438,6 +594,7 @@ const App = (): React.JSX.Element => {
       setFindQuery("");
       setFindIndex(0);
       setWorkspaceView("document");
+      setExternalChangeNotice(undefined);
     } catch {
       setError(
         "Brainarium could not read that file. It may have changed outside the vault.",
@@ -458,31 +615,13 @@ const App = (): React.JSX.Element => {
       setDocument(saved);
       setEditorText(saved.text);
       setLinkGraph(undefined);
+      setExternalChangeNotice(undefined);
     } catch {
       setError(
         "Brainarium could not save this file. It may have changed outside the app.",
       );
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const buildGraph = async (): Promise<void> => {
-    setIsBuildingGraph(true);
-    setGraphStatus(undefined);
-    try {
-      const graph = await window.brainarium.buildGraph();
-      setGraphStatus(
-        graph.nodeCount > 0
-          ? `Graphify analysed ${graph.nodeCount} code nodes without an LLM.`
-          : "Graphify completed, but found no code nodes in this text vault.",
-      );
-    } catch {
-      setGraphStatus(
-        "Graphify is unavailable. Install graphify-rs or set BRAINARIUM_GRAPHIFY_BIN, then try again.",
-      );
-    } finally {
-      setIsBuildingGraph(false);
     }
   };
 
@@ -561,6 +700,15 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  const visibleGraph =
+    linkGraph && graphMode === "local"
+      ? graphScope(
+          linkGraph,
+          document?.kind === "markdown" ? document.relativePath : undefined,
+          localGraphDepth,
+        )
+      : linkGraph;
+
   if (snapshot) {
     return (
       <main className="vault-shell">
@@ -584,9 +732,15 @@ const App = (): React.JSX.Element => {
                 onClick={() => void openLinkGraph()}
                 disabled={isLoadingLinkGraph}
               >
-                {isLoadingLinkGraph ? "Building graph…" : "Open vault graph"}
+                {isLoadingLinkGraph
+                  ? "Building graph…"
+                  : "Build & open vault graph"}
               </button>
             </div>
+            <p className="vault-graph-storage-hint">
+              The graph is a rebuildable local index in
+              <code>.brainarium/graph-v1.json</code>.
+            </p>
           </div>
           <div className="vault-search-controls">
             <button
@@ -665,10 +819,12 @@ const App = (): React.JSX.Element => {
               <header className="document-toolbar graph-toolbar">
                 <div>
                   <p className="section-label">LOCAL, NO-LLM</p>
-                  <h2>Vault graph</h2>
+                  <h2>
+                    {graphMode === "global" ? "Vault graph" : "Local graph"}
+                  </h2>
                   <p>
-                    {linkGraph
-                      ? `${linkGraph.nodes.length} notes · ${linkGraph.edges.length} resolved links`
+                    {visibleGraph
+                      ? `${visibleGraph.nodes.length} notes · ${visibleGraph.edges.length} resolved links`
                       : "Building your note graph…"}
                   </p>
                 </div>
@@ -681,34 +837,71 @@ const App = (): React.JSX.Element => {
                   Refresh graph
                 </button>
               </header>
-              {linkGraph && (
-                <LinkGraphPreview
-                  graph={linkGraph}
+              <section className="graph-controls" aria-label="Graph controls">
+                <div
+                  className="graph-mode-toggle"
+                  role="group"
+                  aria-label="Graph scope"
+                >
+                  <button
+                    className={graphMode === "global" ? "active" : ""}
+                    type="button"
+                    onClick={() => setGraphMode("global")}
+                  >
+                    Global
+                  </button>
+                  <button
+                    className={graphMode === "local" ? "active" : ""}
+                    disabled={document?.kind !== "markdown"}
+                    title={
+                      document?.kind === "markdown"
+                        ? "Show links around this note"
+                        : "Open a Markdown note to use local graph"
+                    }
+                    type="button"
+                    onClick={() => setGraphMode("local")}
+                  >
+                    Local
+                  </button>
+                </div>
+                <label className="graph-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input
+                    aria-label="Filter graph notes"
+                    placeholder="Filter graph notes"
+                    type="search"
+                    value={graphQuery}
+                    onChange={(event) => setGraphQuery(event.target.value)}
+                  />
+                </label>
+                {graphMode === "local" && (
+                  <label className="graph-depth">
+                    Depth {localGraphDepth}
+                    <input
+                      aria-label="Local graph depth"
+                      max="4"
+                      min="1"
+                      type="range"
+                      value={localGraphDepth}
+                      onChange={(event) =>
+                        setLocalGraphDepth(Number(event.target.value))
+                      }
+                    />
+                  </label>
+                )}
+              </section>
+              {visibleGraph && (
+                <SigmaGraphPreview
+                  graph={visibleGraph}
+                  query={graphQuery}
                   onOpenDocument={(relativePath) =>
                     void readDocument(relativePath)
                   }
                 />
               )}
-              <section
-                className="graphify-callout"
-                aria-label="Graphify analysis"
-              >
-                <div>
-                  <p className="section-label">OPTIONAL CODE ANALYSIS</p>
-                  <p>
-                    Graphify is kept separate from note navigation: its
-                    deterministic mode analyses code, not Markdown links.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void buildGraph()}
-                  disabled={isBuildingGraph}
-                >
-                  {isBuildingGraph ? "Analysing…" : "Run Graphify"}
-                </button>
-              </section>
-              {graphStatus && <p className="graph-status">{graphStatus}</p>}
+              <p className="graph-storage-note">
+                Rebuildable index saved in .brainarium/graph-v1.json.
+              </p>
             </>
           ) : document ? (
             <>
@@ -863,6 +1056,9 @@ const App = (): React.JSX.Element => {
             <p className="error" role="alert">
               {error}
             </p>
+          )}
+          {externalChangeNotice && (
+            <p className="notice">{externalChangeNotice}</p>
           )}
           {snapshot.issues.length > 0 && (
             <p className="notice">

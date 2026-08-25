@@ -1,25 +1,84 @@
+import { access } from "node:fs/promises";
+import path from "node:path";
+
 import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
 
-import { GraphifyService } from "./graphify/graphify-service";
+import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { RecentVaultStore } from "./vault/recent-vaults";
-import { buildVaultLinkGraph } from "./vault/vault-link-graph";
 import { searchVault } from "./vault/vault-search";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
+import { VaultWatcher } from "./vault/vault-watcher";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
 let activeVault: Awaited<ReturnType<typeof scanVault>> | undefined;
+let mainWindow: BrowserWindow | undefined;
+let vaultWatcher: VaultWatcher | undefined;
+let graphRebuildGeneration = 0;
 
 const recentVaults = (): RecentVaultStore =>
   new RecentVaultStore(app.getPath("userData") + "/recent-vaults.json");
 
-const graphify = (): GraphifyService =>
-  new GraphifyService(
-    process.env.BRAINARIUM_GRAPHIFY_BIN ?? "graphify-rs",
-    app.getPath("userData") + "/graphify",
+const indexer = (): RustIndexerService =>
+  new RustIndexerService(
+    process.env.BRAINARIUM_INDEXER_BIN ??
+      (app.isPackaged
+        ? path.join(process.resourcesPath, "brainarium-indexer")
+        : path.join(
+            app.getAppPath(),
+            "rust",
+            "target",
+            "release",
+            "brainarium-indexer",
+          )),
   );
+
+const markdownFingerprint = (
+  snapshot: Awaited<ReturnType<typeof scanVault>>,
+): string =>
+  snapshot.documents
+    .filter((document) => document.kind === "markdown")
+    .map(
+      (document) =>
+        `${document.relativePath}\u0000${document.mtimeMs}\u0000${document.size}`,
+    )
+    .join("\n");
+
+async function refreshCachedGraphAfterMarkdownChange(
+  previousSnapshot: Awaited<ReturnType<typeof scanVault>> | undefined,
+  nextSnapshot: Awaited<ReturnType<typeof scanVault>>,
+): Promise<void> {
+  if (
+    !previousSnapshot ||
+    previousSnapshot.rootPath !== nextSnapshot.rootPath ||
+    markdownFingerprint(previousSnapshot) === markdownFingerprint(nextSnapshot)
+  ) {
+    return;
+  }
+
+  try {
+    await access(
+      path.join(nextSnapshot.rootPath, ".brainarium", "graph-v1.json"),
+    );
+  } catch {
+    return;
+  }
+
+  const generation = ++graphRebuildGeneration;
+  try {
+    const graph = await indexer().build(nextSnapshot);
+    if (
+      generation === graphRebuildGeneration &&
+      activeVault?.rootPath === nextSnapshot.rootPath
+    ) {
+      mainWindow?.webContents.send("vault:graphChanged", graph);
+    }
+  } catch {
+    // The tree refresh still succeeds if an optional derived graph cannot.
+  }
+}
 
 async function openVault(
   vaultPath: string,
@@ -27,11 +86,12 @@ async function openVault(
   const snapshot = await scanVault(vaultPath);
   await recentVaults().remember(snapshot.rootPath);
   activeVault = snapshot;
+  vaultWatcher?.start(snapshot);
   return snapshot;
 }
 
 const createWindow = (): void => {
-  const window = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
@@ -44,12 +104,15 @@ const createWindow = (): void => {
     },
   });
 
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  window.webContents.on("will-navigate", (event) => {
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event) => {
     event.preventDefault();
   });
 
-  window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  mainWindow.on("closed", () => {
+    mainWindow = undefined;
+  });
+  void mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 };
 
 ipcMain.handle("vault:choose", async (): Promise<unknown> => {
@@ -94,14 +157,9 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("graphify:build", async (): Promise<unknown> => {
-  if (!activeVault) throw new Error("Open a vault before building its graph.");
-  return graphify().build(activeVault);
-});
-
 ipcMain.handle("vault:linkGraph", async (): Promise<unknown> => {
   if (!activeVault) throw new Error("Open a vault before viewing its graph.");
-  return buildVaultLinkGraph(activeVault);
+  return indexer().build(activeVault);
 });
 
 ipcMain.handle(
@@ -136,6 +194,12 @@ ipcMain.handle(
 );
 
 app.whenReady().then(() => {
+  vaultWatcher = new VaultWatcher((snapshot) => {
+    const previousSnapshot = activeVault;
+    activeVault = snapshot;
+    mainWindow?.webContents.send("vault:changed", snapshot);
+    void refreshCachedGraphAfterMarkdownChange(previousSnapshot, snapshot);
+  });
   createWindow();
 
   app.on("activate", () => {
@@ -149,6 +213,10 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("before-quit", () => {
+  vaultWatcher?.stop();
 });
 
 function isSaveInput(

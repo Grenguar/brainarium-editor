@@ -3,7 +3,9 @@ const { WebpackPlugin } = require("@electron-forge/plugin-webpack");
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
-  packagerConfig: {},
+  packagerConfig: {
+    extraResource: ["rust/target/release/brainarium-indexer"],
+  },
   rebuildConfig: {},
   makers: [new MakerZIP({}, ["darwin"])],
   plugins: [

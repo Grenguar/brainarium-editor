@@ -1,0 +1,15 @@
+[package]
+name = "brainarium-mcp"
+version = "0.1.0"
+edition = "2024"
+license = "UNLICENSED"
+description = "A vault-scoped local MCP server for Brainarium-supported text files"
+rust-version = "1.88"
+
+[dependencies]
+brainarium-indexer = { path = "../rust" }
+rmcp = { version = "3.1.4", default-features = false, features = ["macros", "server", "transport-io"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.10.9"
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }

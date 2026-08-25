@@ -31,7 +31,7 @@ Assumption: one experienced engineer, macOS-first, iterative local releases. Est
 - Native Choose Folder, recent vaults, reopen/switch/remove/locate flows.
 - Path canonicalization, vault-boundary checks, symlink policy.
 - Recursive scan, supported-type filter, tree model, watcher, periodic reconciliation.
-- Settings store under app data; no `.brainarium` vault files.
+- Settings and recent vault paths under app data. A graph build may create only the disclosed, disposable `.brainarium/graph-v1.json` cache inside its explicitly opened vault.
 - Light/Dark/System theme tokens and basic shell layout.
 
 ### Exit gate
@@ -72,17 +72,18 @@ Assumption: one experienced engineer, macOS-first, iterative local releases. Est
 
 ### Work
 
-- Metadata/link parser in worker, deterministic resolver, reverse-edge index.
+- Packaged Rust Markdown link indexer with deterministic resolver and versioned, atomic `.brainarium/graph-v1.json` output; main-process response validation.
 - Link navigation and heading fragments.
 - Connections panel with outgoing/backlink/broken/ambiguous states.
 - Browser-like back/forward history.
-- Deliver title/path Quick Open as the P0 `IDX-04` picker; full-text search remains P1.
+- Deliver title/path Quick Open as the P0 `IDX-04` picker; keep existing local lexical search bounded and independent of the graph.
+- Global/local force-directed graph: pan/zoom, node filter, link hover, note open, manual refresh, and first-use cache disclosure.
 
 ### Exit gate
 
 - Link fixture accuracy >=99%; duplicate basenames never resolve arbitrarily.
 - External create/rename/delete updates tree and connections within 500 ms after debounce.
-- Index can be deleted and rebuilt entirely from files.
+- Graph cache can be deleted and rebuilt entirely from Markdown source without touching source documents.
 
 ## Milestone 4 — Codex and agent extension seam (5–8 days)
 
@@ -147,6 +148,8 @@ brainarium/
 │   └── shared/
 │       ├── contracts/
 │       └── schemas/
+├── rust/
+│   └── src/                 # deterministic, graph-only indexer
 ├── tests/
 │   ├── fixtures/vaults/
 │   ├── unit/
@@ -155,7 +158,7 @@ brainarium/
 └── forge.config.ts
 ```
 
-If Rust is extracted later, add `crates/brainarium-core` and `crates/brainarium-sidecar`; do not fork business rules between TypeScript and Rust.
+The initial Rust indexer stays under `rust/` and owns only deterministic graph construction. If Rust expands later, add `crates/brainarium-core` and `crates/brainarium-sidecar`; do not fork business rules between TypeScript and Rust.
 
 ## Test strategy
 
@@ -172,6 +175,7 @@ If Rust is extracted later, add `crates/brainarium-core` and `crates/brainarium-
 - Temporary vault scan/watch/reconcile.
 - Atomic save, crash/interruption, external conflict, newline preservation.
 - Renderer-to-main IPC validation and unauthorized path rejection.
+- Rust graph indexer: link fixtures, ambiguous targets, code-fence exclusion, cache write refusal for symlinks, and malformed-sidecar response rejection.
 - Fake Codex server lifecycle, cancel, approval, overload, malformed message, crash, reconnect.
 - Extension manifest/capability enforcement and ID collision.
 
@@ -183,6 +187,7 @@ If Rust is extracted later, add `crates/brainarium-core` and `crates/brainarium-
 - Switch vault with save/conflict/agent states.
 - Inline Codex → stream → replace → undo.
 - CSV open and scroll large fixture.
+- Build/rebuild vault graph → pan/zoom/filter → open a node → return to the document.
 
 ### Manual packaged checks
 
@@ -194,25 +199,25 @@ If Rust is extracted later, add `crates/brainarium-core` and `crates/brainarium-
 
 ## Risk register
 
-| Risk | Impact | Mitigation / trigger |
-|---|---|---|
-| Assisted Markdown cursor/IME bugs | High | Phase-zero spike; always keep raw source; reduce hidden syntax before sacrificing correctness |
-| Rich editor normalizes source | High | Golden round-trip fixtures; CodeMirror default; opaque/raw fallback |
-| External edits race autosave | High | Base hashes, conflict stop, compare/reload/keep tests |
-| Codex app-server protocol changes | Medium/High | Generate schemas from installed version, adapter boundary, compatibility tests, useful diagnostics |
-| Agent writes beyond intent | High | Proposal-only edits, path/version validation, read-only defaults, fail-closed approvals |
-| Electron renderer compromise | High | Sandbox/context isolation/CSP, no Node, narrow validated bridge, sanitized Markdown |
-| Watcher drops events | Medium | Periodic reconciliation and manual refresh |
-| Electron Forge Vite churn | Medium | Prefer stable webpack template or pin exact Vite plugin and keep migration note |
-| Rust extraction creates duplicate logic | Medium | One `CoreBackend` contract; move a component fully, not partially |
-| Typora theme reuse ambiguity | Medium | Independently author CSS/assets and record third-party licenses |
+| Risk                                       | Impact      | Mitigation / trigger                                                                                  |
+| ------------------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------- |
+| Assisted Markdown cursor/IME bugs          | High        | Phase-zero spike; always keep raw source; reduce hidden syntax before sacrificing correctness         |
+| Rich editor normalizes source              | High        | Golden round-trip fixtures; CodeMirror default; opaque/raw fallback                                   |
+| External edits race autosave               | High        | Base hashes, conflict stop, compare/reload/keep tests                                                 |
+| Codex app-server protocol changes          | Medium/High | Generate schemas from installed version, adapter boundary, compatibility tests, useful diagnostics    |
+| Agent writes beyond intent                 | High        | Proposal-only edits, path/version validation, read-only defaults, fail-closed approvals               |
+| Electron renderer compromise               | High        | Sandbox/context isolation/CSP, no Node, narrow validated bridge, sanitized Markdown                   |
+| Watcher drops events                       | Medium      | Periodic reconciliation and manual refresh                                                            |
+| Electron Forge Vite churn                  | Medium      | Prefer stable webpack template or pin exact Vite plugin and keep migration note                       |
+| Rust graph sidecar creates duplicate logic | Medium      | Rust owns graph construction fully; Electron retains scan/save/search; narrow validated JSON contract |
+| Typora theme reuse ambiguity               | Medium      | Independently author CSS/assets and record third-party licenses                                       |
 
 ## Delivery order after MVP
 
 1. Quick Open/full-text search and safe rename preview.
 2. Rich table editing and split view.
-3. Local/global graph.
+3. Persisted layout, graph filters, and watch-based graph refresh after the manual graph is measured.
 4. Opt-in agent retrieval across selected documents.
 5. Persistent agent threads and user-defined actions.
 6. Capability-managed extension packages.
-7. Rust core extraction only if benchmarks justify it.
+7. Rust-sidecar expansion only if benchmarks justify it.

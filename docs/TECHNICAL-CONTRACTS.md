@@ -12,33 +12,41 @@ Milestone 0 must keep golden fixtures for CRLF/LF, malformed frontmatter, refere
 
 The selected directory is the vault. Main-process file operations resolve a real path and check containment. Path traversal is rejected. A symlink may be followed only when its target remains inside the vault; external/unavailable targets are shown as unavailable. Index only Markdown (`.md`, `.markdown`), CSV, plain text (`.txt`), JSON, XML, and HTML (`.html`, `.htm`); binary, invalid-UTF-8, and oversize files are never silently coerced. Markdown and CSV have dedicated views; TXT, JSON, XML, and HTML are inert, exact-source, read-only previews. Copy always re-reads the active, vault-bound document before placing its current text on the clipboard.
 
-| Buffer state | Disk event | Required behavior |
-|---|---|---|
-| Clean | modify/rename/delete | Reconcile and reload or show a recoverable missing state |
-| Dirty | modify | Freeze autosave; offer Compare, Reload Disk, or Keep Mine |
-| Any | rename pairing uncertain | Reconcile from a fresh scan; never guess a link rewrite |
-| Proposal pending | any version change | Mark proposal stale; block application until regenerated |
+| Buffer state     | Disk event               | Required behavior                                         |
+| ---------------- | ------------------------ | --------------------------------------------------------- |
+| Clean            | modify/rename/delete     | Reconcile and reload or show a recoverable missing state  |
+| Dirty            | modify                   | Freeze autosave; offer Compare, Reload Disk, or Keep Mine |
+| Any              | rename pairing uncertain | Reconcile from a fresh scan; never guess a link rewrite   |
+| Proposal pending | any version change       | Mark proposal stale; block application until regenerated  |
 
-Saves use same-directory temporary replacement where supported and leave either the complete old or complete new file after interruption. Periodic reconciliation is the watcher-correctness backstop.
-
-## Optional Graphify graph build
-
-Brainarium may invoke a user-installed `graphify-rs` binary only after an explicit user action for the active vault. The initial adapter runs `build --no-llm --format json,report`, passes the canonical active-vault path, and writes all derived graph output under app data rather than inside the vault. The process receives only `PATH` and `HOME`; no provider credentials are inherited. Graphify's optional LLM extraction, URL ingestion, watch mode, and arbitrary MCP tools are outside this integration. A missing binary fails visibly and never changes vault content.
+Saves use same-directory temporary replacement where supported and leave either the complete old or complete new file after interruption. The main process uses native recursive events as a fast path, debounces them for 350 ms, and reconciles every three seconds as a correctness backstop. A clean open file reloads from the fresh scan; a dirty Markdown editor remains untouched and shows an external-change notice. A missing open file becomes a recoverable missing state.
 
 ## Rebuildable link graph and search
 
-Brainarium's vault navigation graph is first-party and deterministic: it reads active-vault Markdown only, resolves explicit `[[wiki-links]]` against indexed Markdown titles and paths, and retains only resolved edges. It neither needs an LLM nor writes graph data into the vault. The initial global search is likewise local, case-insensitive lexical search across supported documents; it returns bounded result metadata, match counts, and source snippets over the typed preload bridge. Semantic/vector search is a later, benchmark-gated capability rather than a dependency of opening, searching, or graphing a vault.
+Brainarium's vault navigation graph is first-party and deterministic: an explicitly invoked, packaged Rust indexer reads active-vault Markdown only, resolves explicit wiki and local Markdown links only when targets are unambiguous, and retains only resolved edges. It ignores dot-directories, invalid UTF-8, symlinks, inline code, and fenced code. It needs no LLM.
+
+After validating the selected root and refusing a symlinked `.brainarium` directory, the indexer atomically writes the versioned, non-authoritative cache `.brainarium/graph-v1.json` within that same vault. The UI identifies this file before the user invokes the build action. It is disposable and must be rebuilt solely from Markdown source; it is never indexed as a document, never modifies source files, and failure leaves navigation, reading, editing, copying, and search available. Once this cache exists, an externally changed Markdown file triggers a debounced automatic rebuild and pushes the fresh graph to an open graph view; changes to other supported types do not rebuild the graph. The Electron main process supplies only the canonical active-vault path and a `PATH`-only environment, then validates every node and edge before exposing a typed graph to the renderer.
+
+The initial global search is local, case-insensitive lexical search across supported documents; it returns bounded result metadata, match counts, and source snippets over the typed preload bridge. Semantic/vector search and graph persistence beyond the derived cache are later, benchmark-gated capabilities rather than dependencies of opening, searching, or graphing a vault.
+
+## External Brainarium MCP
+
+`brainarium-mcp` is a separately installed Rust stdio server, not a renderer bridge and not the built-in Codex adapter. Its authoritative per-process configuration lives outside a vault: `BRAINARIUM_VAULT` names one canonical active vault and `BRAINARIUM_MCP_ALLOW_WRITE=true` opts into write authority. Switching vaults requires starting a new process with the new explicit configuration; the server never accepts a client-supplied root or exposes configuration mutation as an MCP tool.
+
+MCP paths are normalized, non-hidden relative paths to supported UTF-8 files only. The server rejects absolute paths, traversal, symlinks, unsupported extensions, directories, oversize reads/writes, and direct `.brainarium` access. It returns exact bytes/text with a SHA-256 version; replacing an existing file requires that version, performs a same-directory atomic replacement, and fails on a stale version. A successful Markdown write rebuilds the shared graph cache when enabled. JSON-RPC is stdout-only; redacted operational diagnostics are stderr-only.
+
+This is intentional authority separation: the built-in Codex provider remains proposal-only under this document's agent contract, while an owner who installs `brainarium-mcp` and configures `read-write` for a vault grants that MCP server direct, capability-scoped write access. The initial MCP exposes no delete, rename, shell, network, arbitrary-folder, or graph-cache mutation tools.
 
 ## Agent safety and protocol
 
 The main process starts `codex app-server` over JSONL stdio, keeps protocol stdout separate from redacted stderr diagnostics, scopes cwd to the active vault, and passes an explicit environment allowlist. It initializes before a thread/turn and normalizes native events. A native patch or tool request is never applied directly: it becomes a bounded `WorkspaceEdit`, is path/version-validated, and is shown as a proposal/diff.
 
-| Capability | MVP behavior |
-|---|---|
-| Active selection/document | Allowed only after exact bounded context preview |
-| Additional document | Explicit per-document opt-in |
-| Vault search, shell, network, direct write | Denied |
-| Reviewed text proposal | File service applies it after immediate revalidation |
+| Capability                                 | MVP behavior                                         |
+| ------------------------------------------ | ---------------------------------------------------- |
+| Active selection/document                  | Allowed only after exact bounded context preview     |
+| Additional document                        | Explicit per-document opt-in                         |
+| Vault search, shell, network, direct write | Denied                                               |
+| Reviewed text proposal                     | File service applies it after immediate revalidation |
 
 `requested` approvals become `denied` on timeout, cancellation, disconnect, vault switch, app quit, stale base, malformed event, or policy violation. Nothing writes a vault file until a reviewed proposal is accepted. The implementation spike must set explicit context, file-count, queue-depth, and cancellation limits. Routine logs exclude document contents, credentials, and raw protocol payloads.
 

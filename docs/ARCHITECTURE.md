@@ -4,17 +4,17 @@ Status: proposed MVP architecture, 2026-08-25.
 
 ## Decision summary
 
-Use Electron + TypeScript for the MVP. Keep the renderer sandboxed, put filesystem/process privileges in the main process, and define ports around vault, index, editor contributions, and agent providers. Do not add custom Rust until profiling identifies a component worth extracting.
+Use Electron + TypeScript for the MVP shell. Keep the renderer sandboxed, put filesystem/process privileges in the main process, and define ports around vault, index, editor contributions, and agent providers. A deliberately narrow Rust sidecar owns only the deterministic, on-demand Markdown link graph; it does not own file writes, the editor, or application state.
 
-This is a delivery decision, not a rejection of Rust. Electron plus a Rust sidecar combines two custom runtimes and a supervision protocol; Tauri is the more coherent option if Rust must own the application core from day one.
+This is a delivery decision, not a rejection of Rust. Electron plus a Rust sidecar has lifecycle and packaging cost, so Brainarium uses that boundary only for a small, independently testable graph index. Tauri remains the more coherent option if Rust must own the application core.
 
 ## Shell options
 
-| Option | Time to usable MVP | Strengths | Costs | Verdict |
-|---|---:|---|---|---|
-| Electron + TypeScript | Fastest | One language across shell/UI, mature web editor ecosystem, direct filesystem/subprocess APIs, Forge packaging | Large bundle; strict Electron security discipline required | **MVP choice** |
-| Electron + Rust sidecar | Medium | Rust can own parsing/index/search and isolate failures | Two custom runtimes, RPC, lifecycle/debug/packaging overhead | Extract later if measured |
-| Tauri v2 + TypeScript UI | Medium | Natural Rust core, smaller binary, explicit capabilities | Different webviews, more Rust integration/setup, not the requested Electron plan | Best Rust-first alternative |
+| Option                   | Time to usable MVP | Strengths                                                                                                     | Costs                                                                            | Verdict                            |
+| ------------------------ | -----------------: | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------- |
+| Electron + TypeScript    |            Fastest | One language across shell/UI, mature web editor ecosystem, direct filesystem/subprocess APIs, Forge packaging | Large bundle; strict Electron security discipline required                       | **MVP choice**                     |
+| Electron + Rust sidecar  |             Medium | Rust isolates deterministic graph parsing/indexing from the UI                                                | Two custom runtimes, IPC, lifecycle/debug/packaging overhead                     | **Chosen only for the link graph** |
+| Tauri v2 + TypeScript UI |             Medium | Natural Rust core, smaller binary, explicit capabilities                                                      | Different webviews, more Rust integration/setup, not the requested Electron plan | Best Rust-first alternative        |
 
 ## High-level design
 
@@ -30,8 +30,8 @@ This is a delivery decision, not a rejection of Rust. Electron plus a Rust sidec
 └───────────────┬───────────────────┬──────────────────────┬────────────┘
                 │ worker messages   │ JSONL stdio          │ filesystem
           ┌─────▼─────┐       ┌─────▼──────────┐       ┌──▼──────────┐
-          │ index     │       │ codex          │       │ selected    │
-          │ worker    │       │ app-server     │       │ vault       │
+          │ Rust link │       │ codex          │       │ selected    │
+          │ graph CLI │       │ app-server     │       │ vault       │
           └───────────┘       └────────────────┘       └─────────────┘
 ```
 
@@ -48,6 +48,7 @@ The renderer never receives arbitrary filesystem or process APIs. It receives im
 - `chokidar` or a small watcher adapter in the main process, with reconciliation.
 - Zod or equivalent runtime schemas at every IPC and agent boundary.
 - Electron Forge makers/signing/notarization for macOS artifacts.
+- Rust `serde`/`serde_json` for the versioned graph cache; do not add a graph database, parser framework, or native full-text engine until measurement requires one.
 
 Versions must be pinned after the implementation spike. Context7 verification was attempted but blocked by an invalid configured key; official documentation is the current evidence source.
 
@@ -77,7 +78,7 @@ interface EditorAdapter {
   getText(): string;
   getSelection(): TextSelection;
   applyTransaction(tx: TextTransaction): void;
-  setMode(mode: 'assisted' | 'source'): void;
+  setMode(mode: "assisted" | "source"): void;
   register(contribution: EditorContribution): Disposable;
 }
 ```
@@ -98,19 +99,21 @@ interface EditorAdapter {
 - Preserves newline and final-newline behavior.
 - Resolves local assets through a controlled custom protocol or validated byte API, never `file://` access exposed generally.
 
-### Index worker
+### Rust link-graph indexer
 
-Runs off the renderer thread. It parses metadata and links, builds folder/document maps and reverse edges, and emits incremental snapshots. Its state is fully reconstructible.
+Runs off the renderer thread as a packaged CLI and receives exactly one canonical, active-vault path. On an explicit Build/Open or Refresh action it scans Markdown only, ignores dot-directories and symlinks, extracts wiki and local Markdown links outside inline/fenced code, resolves only unambiguous targets, and atomically writes `.brainarium/graph-v1.json` inside the selected vault. The file is versioned, derived, disposable, and is never treated as content or scanned as input.
 
-MVP keeps the index in memory and may persist a versioned JSON snapshot under app data. Avoid a native SQLite dependency before it provides measured value. Full-text search or large-vault pressure can justify SQLite/Rust later.
+The Electron main process launches it with an explicit `PATH`-only environment, validates the returned JSON before the typed preload bridge receives it, and reports failure without impairing reading, editing, or lexical vault search. The sidecar owns neither document writes nor the visual layout. The React graph view uses the returned data for force-directed global/local navigation, including pan/zoom, filter, and direct note opening.
 
-### Optional Graphify adapter
-
-Graphify-rs is an optional, user-installed analysis CLI rather than Brainarium's primary index. The main process may run its deterministic `--no-llm` build for the active vault and store its JSON/report output beneath app data. Brainarium does not invoke Graphify's semantic extraction, ingestion, watcher, or MCP server. Its generated graph is a future analysis view; Brainarium's own deterministic Markdown link index remains the source of navigation/backlinks.
+The first implementation builds the graph explicitly, then treats the cache as graph-enabled: a debounced external Markdown change rebuilds it in the main process and pushes its validated result to an open graph view. Richer Markdown parsing and full-text/semantic indexes remain separately benchmark-gated; do not add SQLite, a vector store, or a graph database to open or graph a vault.
 
 ### Watcher
 
-Normalizes create/change/delete/rename events and debounces noisy sequences. On resume, watcher error, and a periodic interval, compare directory metadata with the index. Network/removable volumes can miss native events, so correctness cannot rely on notifications alone.
+Uses Node's recursive native watch as the fast path, ignores the derived `.brainarium` directory, debounces noisy create/change/delete/rename sequences, and reconciles directory metadata every three seconds. Network/removable volumes can miss native events, so correctness cannot rely on notifications alone. The watcher updates the tree and clean open document; it preserves a dirty editor buffer and reports the conflict instead of overwriting it.
+
+### External Rust MCP
+
+`brainarium-mcp/` is a separately packaged Rust stdio service for Claude Desktop, Claude Code, and other MCP clients. It does not invoke Electron and owns a distinct, config-authorized filesystem capability. Its launch environment selects exactly one canonical active vault (`BRAINARIUM_VAULT`) and explicit write authority (`BRAINARIUM_MCP_ALLOW_WRITE=true`); changing vaults means starting a separate process with a new configuration. The service returns relative document paths, requires SHA-256 optimistic versions for replacement writes, and atomically writes within the configured vault. Electron's vault watcher observes those Markdown writes and refreshes the already enabled graph cache. It deliberately cannot select arbitrary roots, delete/rename files, run shell commands, access the network, or expose `.brainarium` internals.
 
 ### Reading renderer
 
@@ -124,7 +127,7 @@ Streams/segments parsing outside the renderer UI loop and sends bounded row page
 
 ```ts
 type VaultRecord = {
-  id: string;               // hash/UUID associated with normalized path
+  id: string; // hash/UUID associated with normalized path
   name: string;
   path: string;
   lastOpenedAt: string;
@@ -133,7 +136,7 @@ type VaultRecord = {
 type DocumentRecord = {
   vaultId: string;
   relativePath: string;
-  kind: 'markdown' | 'csv';
+  kind: "markdown" | "csv";
   title: string;
   frontmatter?: Record<string, unknown>;
   mtimeMs: number;
@@ -145,17 +148,17 @@ type DocumentRecord = {
 type LinkEdge = {
   sourcePath: string;
   rawTarget: string;
-  kind: 'markdown' | 'wiki' | 'image';
+  kind: "markdown" | "wiki" | "image";
   targetPath?: string;
   fragment?: string;
-  status: 'resolved' | 'broken' | 'ambiguous' | 'external';
+  status: "resolved" | "broken" | "ambiguous" | "external";
   candidates?: string[];
 };
 
 type TextTransaction = {
   baseVersion: string;
   edits: Array<{ from: number; to: number; insert: string }>;
-  origin: 'user' | 'command' | 'agent';
+  origin: "user" | "command" | "agent";
   label: string;
 };
 ```
@@ -184,18 +187,18 @@ Brainarium uses internal extensions from the start so built-in menus exercise th
 
 ```ts
 type Capability =
-  | 'document.readActive'
-  | 'document.proposeEdit'
-  | 'vault.search'
-  | 'vault.readSelected'
-  | 'process.agentProvider'
-  | 'ui.panel';
+  | "document.readActive"
+  | "document.proposeEdit"
+  | "vault.search"
+  | "vault.readSelected"
+  | "process.agentProvider"
+  | "ui.panel";
 
 type EditorContribution = {
   id: string;
   owner: string;
   label: string;
-  placements: Array<'slash' | 'context' | 'selection' | 'commandPalette'>;
+  placements: Array<"slash" | "context" | "selection" | "commandPalette">;
   when: Applicability;
   capabilities: Capability[];
   execute: (ctx: CommandContext) => Promise<CommandResult>;
@@ -220,7 +223,7 @@ interface AgentProvider {
   capabilities(): AgentCapabilities;
   start(config: ProviderConfig): Promise<ProviderSession>;
   send(sessionId: string, request: AgentRequest): AsyncIterable<AgentEvent>;
-  approve(requestId: string, decision: 'allow-once' | 'deny'): Promise<void>;
+  approve(requestId: string, decision: "allow-once" | "deny"): Promise<void>;
   interrupt(sessionId: string, turnId?: string): Promise<void>;
   close(): Promise<void>;
 }
@@ -248,7 +251,7 @@ Agents propose `WorkspaceEdit` objects rather than writing files:
 ```ts
 type WorkspaceEdit = {
   baseVersions: Record<string, string>;
-  files: Array<{ path: string; edits: TextTransaction['edits'] }>;
+  files: Array<{ path: string; edits: TextTransaction["edits"] }>;
   summary: string;
 };
 ```
@@ -276,14 +279,14 @@ The main process revalidates paths and versions, the renderer previews diffs, an
 - Kill supervised child processes on app exit; restart Codex only with bounded backoff.
 - Crash recovery reopens the last vault/document but never auto-applies an unreviewed agent proposal.
 
-## Rust extraction path
+## Rust sidecar evolution
 
-Keep a `CoreBackend` port around scan/watch/index/search/links. Extract it to a Rust JSONL sidecar if one of these is measured:
+The graph indexer is the only Rust component adopted now ([ADR-002](adr/002-rust-vault-link-graph.md)). Keep a `CoreBackend` boundary around scan/watch/index/search/links, but move a responsibility fully only after measured evidence:
 
-- initial/incremental indexing misses performance targets;
-- full-text/semantic search needs a native index;
-- watcher correctness needs platform-specific handling;
-- parsing untrusted or very large inputs benefits from process isolation;
+- manual graph rebuild misses performance targets;
+- watch-based refresh needs platform-specific handling;
+- full-text or semantic search needs a native index;
+- parsing untrusted or very large inputs benefits from process isolation; or
 - the core will be reused outside Electron.
 
-The sidecar should own indexing/search/graph first, not document writes or UI state. That bounds failure and avoids two competing save authorities.
+Any expansion must preserve one save authority in Electron, preserve source fidelity, define a versioned cache migration, and retain a no-LLM path. The sidecar must not own UI state or document writes.

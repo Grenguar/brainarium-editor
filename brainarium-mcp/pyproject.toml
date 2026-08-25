@@ -1,0 +1,13 @@
+[project]
+name = "brainarium-mcp-launcher"
+version = "0.1.0"
+description = "uv launcher for the Rust Brainarium MCP server"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+brainarium-mcp = "brainarium_mcp_launcher:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

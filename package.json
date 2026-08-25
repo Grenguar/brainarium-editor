@@ -5,9 +5,12 @@
   "description": "A local-first Markdown and CSV vault editor.",
   "main": ".webpack/main",
   "scripts": {
+    "predev": "npm run build:rust",
+    "prestart": "npm run build:rust",
     "start": "electron-forge start",
     "dev": "electron-forge start",
-    "package": "electron-forge package",
+    "build:rust": "cargo build --release --manifest-path rust/Cargo.toml",
+    "package": "npm run build:rust && electron-forge package",
     "make": "electron-forge make",
     "format": "prettier --write package.json forge.config.js webpack.rules.js webpack.main.config.js webpack.renderer.config.js tsconfig.json eslint.config.mjs src",
     "format:check": "prettier --check package.json forge.config.js webpack.rules.js webpack.main.config.js webpack.renderer.config.js tsconfig.json eslint.config.mjs src",
@@ -15,6 +18,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:rust": "cargo fmt --manifest-path rust/Cargo.toml --check && cargo clippy --manifest-path rust/Cargo.toml -- -D warnings && cargo test --manifest-path rust/Cargo.toml",
+    "quality": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run check:rust && npm run build",
     "build": "npm run package"
   },
   "license": "UNLICENSED",
@@ -41,7 +46,10 @@
     "webpack-cli": "7.2.2"
   },
   "dependencies": {
+    "graphology": "^0.26.0",
+    "graphology-layout-forceatlas2": "^0.10.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sigma": "^3.0.3"
   }
 }

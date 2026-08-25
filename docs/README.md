@@ -15,9 +15,10 @@ Build the first usable release with Electron and TypeScript:
 - Electron main process for vault access, file watching, indexing, and Codex process supervision.
 - `codex app-server` over JSONL/stdio behind a provider-neutral agent adapter.
 - Read-only CSV table viewing plus exact-source previews for plain text, JSON, XML, and HTML.
-- In-memory, rebuildable document/link index; extract a Rust sidecar only after profiling.
+- A first-party Rust sidecar builds a deterministic Markdown link graph on demand. It stores only a rebuildable, versioned cache at `.brainarium/graph-v1.json` in the explicitly opened vault, refreshes that cache after a Markdown change once graphing is enabled, never changes source documents, and does not need an LLM.
+- A separate Rust stdio MCP server can be explicitly configured for one selected vault. It is independent of the Electron renderer and exposes only bounded, version-checked file operations and the same no-LLM graph cache.
 
-If custom Rust from day one is non-negotiable, Tauri v2 is cleaner than Electron plus a custom Rust sidecar. The requested Electron design and the alternatives are compared in [ARCHITECTURE.md](ARCHITECTURE.md).
+The requested Electron shell remains the application host; the narrow Rust sidecar is limited to local graph indexing. The decision and boundaries are recorded in [ADR-002](adr/002-rust-vault-link-graph.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## MVP in one sentence
 
@@ -25,18 +26,18 @@ Choose any folder, browse its supported text files (Markdown, CSV, plain text, J
 
 ## Document map
 
-| Document | Purpose |
-|---|---|
-| [PRODUCT-REQUIREMENTS.md](PRODUCT-REQUIREMENTS.md) | Scope, requirements, acceptance criteria, metrics, and open questions |
-| [UX-SPEC.md](UX-SPEC.md) | Layout, Reading/Editing modes, themes, menus, connections, and agent interactions |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Technology decision, components, data model, IPC, extensions, security, and file safety |
-| [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) | Milestones, work breakdown, tests, risks, and release gates |
-| [RESEARCH.md](RESEARCH.md) | Evidence from the current brain, Typora, Hermes, Obsidian, Electron, editor frameworks, Codex, and Tauri |
-| [OPEN-DECISIONS.md](OPEN-DECISIONS.md) | Unvalidated defaults and evidence needed to close them |
-| [CONTEXT7-VERIFICATION.md](CONTEXT7-VERIFICATION.md) | Context7 status and required verification record |
-| [TECHNICAL-CONTRACTS.md](TECHNICAL-CONTRACTS.md) | Normative source-fidelity, vault, agent, and performance contracts |
-| [adr/001-editor-engine-gate.md](adr/001-editor-engine-gate.md) | Editor-engine decision gate |
-| [GITHUB-ACTIONS-PLAN.md](GITHUB-ACTIONS-PLAN.md) | Staged CI, security, release, label-sync, and branch-protection plan |
+| Document                                                       | Purpose                                                                                                  |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [PRODUCT-REQUIREMENTS.md](PRODUCT-REQUIREMENTS.md)             | Scope, requirements, acceptance criteria, metrics, and open questions                                    |
+| [UX-SPEC.md](UX-SPEC.md)                                       | Layout, Reading/Editing modes, themes, menus, connections, and agent interactions                        |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                             | Technology decision, components, data model, IPC, extensions, security, and file safety                  |
+| [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md)               | Milestones, work breakdown, tests, risks, and release gates                                              |
+| [RESEARCH.md](RESEARCH.md)                                     | Evidence from the current brain, Typora, Hermes, Obsidian, Electron, editor frameworks, Codex, and Tauri |
+| [OPEN-DECISIONS.md](OPEN-DECISIONS.md)                         | Unvalidated defaults and evidence needed to close them                                                   |
+| [CONTEXT7-VERIFICATION.md](CONTEXT7-VERIFICATION.md)           | Context7 status and required verification record                                                         |
+| [TECHNICAL-CONTRACTS.md](TECHNICAL-CONTRACTS.md)               | Normative source-fidelity, vault, agent, and performance contracts                                       |
+| [adr/001-editor-engine-gate.md](adr/001-editor-engine-gate.md) | Editor-engine decision gate                                                                              |
+| [GITHUB-ACTIONS-PLAN.md](GITHUB-ACTIONS-PLAN.md)               | Staged CI, security, release, label-sync, and branch-protection plan                                     |
 
 ## Default MVP decisions
 

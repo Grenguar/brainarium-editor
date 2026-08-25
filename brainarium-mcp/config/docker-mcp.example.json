@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "brainarium-vault": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "BRAINARIUM_VAULT=/vault",
+        "-e",
+        "BRAINARIUM_MCP_ALLOW_WRITE=true",
+        "-v",
+        "/absolute/path/to/the-same-vault-selected-in-Brainarium:/vault:rw",
+        "brainarium-mcp:local"
+      ]
+    }
+  }
+}

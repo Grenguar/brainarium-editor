@@ -22,11 +22,6 @@ contextBridge.exposeInMainWorld("brainarium", {
     text: string;
   }): Promise<VaultDocumentContent> =>
     ipcRenderer.invoke("document:save", input),
-  buildGraph: (): Promise<{
-    graphPath: string;
-    nodeCount: number;
-    reportPath: string;
-  }> => ipcRenderer.invoke("graphify:build"),
   buildVaultLinkGraph: (): Promise<VaultLinkGraph> =>
     ipcRenderer.invoke("vault:linkGraph"),
   copyDocumentContent: (relativePath: string): Promise<void> =>
@@ -35,6 +30,26 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:listRecent"),
   openRecentVault: (id: string): Promise<VaultSnapshot> =>
     ipcRenderer.invoke("vault:openRecent", id),
+  onVaultChanged: (
+    callback: (snapshot: VaultSnapshot) => void,
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      snapshot: VaultSnapshot,
+    ) => callback(snapshot);
+    ipcRenderer.on("vault:changed", listener);
+    return () => ipcRenderer.removeListener("vault:changed", listener);
+  },
+  onVaultGraphChanged: (
+    callback: (graph: VaultLinkGraph) => void,
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      graph: VaultLinkGraph,
+    ) => callback(graph);
+    ipcRenderer.on("vault:graphChanged", listener);
+    return () => ipcRenderer.removeListener("vault:graphChanged", listener);
+  },
   searchVault: (query: string): Promise<VaultSearchResult[]> =>
     ipcRenderer.invoke("vault:search", query),
 });
@@ -45,6 +60,8 @@ export type BrainariumApi = {
   buildVaultLinkGraph(): Promise<VaultLinkGraph>;
   listRecentVaults(): Promise<RecentVault[]>;
   openRecentVault(id: string): Promise<VaultSnapshot>;
+  onVaultChanged(callback: (snapshot: VaultSnapshot) => void): () => void;
+  onVaultGraphChanged(callback: (graph: VaultLinkGraph) => void): () => void;
   searchVault(query: string): Promise<VaultSearchResult[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
   saveDocument(input: {
@@ -52,9 +69,4 @@ export type BrainariumApi = {
     relativePath: string;
     text: string;
   }): Promise<VaultDocumentContent>;
-  buildGraph(): Promise<{
-    graphPath: string;
-    nodeCount: number;
-    reportPath: string;
-  }>;
 };

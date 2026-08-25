@@ -1,0 +1,9 @@
+.git
+.github
+.planning
+node_modules
+out
+rust/target
+brainarium-mcp/.venv
+brainarium-mcp/target
+**/__pycache__

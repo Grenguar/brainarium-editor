@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectDelimiter, parseCsv } from "./csv-preview";
+import { detectDelimiter, parseCsv, toCsvTable } from "./csv-preview";
 
 describe("parseCsv", () => {
   it("preserves commas, escaped quotes, and newlines in quoted values", () => {
@@ -30,5 +30,75 @@ describe("parseCsv", () => {
       ["", "", "AAPL"],
       ["42", "Marvell", "MRVL"],
     ]);
+  });
+
+  it("parses a bank export with a declared semicolon dialect", () => {
+    const source = [
+      "sep=;",
+      "Booking date;Value date;Description;Reference;Amount;Currency",
+      '"2026-08-24";"2026-08-24";"Card payment";"Cafe; Salou";"-12,34";"EUR"',
+      '"2026-08-25";"";"Transfer";"Invoice ""August""";"1.250,00";"EUR"',
+    ].join("\r\n");
+
+    expect(detectDelimiter(source)).toBe(";");
+    expect(parseCsv(source)).toEqual([
+      [
+        "Booking date",
+        "Value date",
+        "Description",
+        "Reference",
+        "Amount",
+        "Currency",
+      ],
+      [
+        "2026-08-24",
+        "2026-08-24",
+        "Card payment",
+        "Cafe; Salou",
+        "-12,34",
+        "EUR",
+      ],
+      ["2026-08-25", "", "Transfer", 'Invoice "August"', "1.250,00", "EUR"],
+    ]);
+  });
+
+  it("chooses semicolons over unquoted decimal commas", () => {
+    const source = [
+      "Date;Description;Amount;Balance",
+      "2026-08-24;Card payment;-12,34;987,66",
+      "2026-08-25;Transfer;1.250,00;2.237,66",
+    ].join("\n");
+
+    expect(detectDelimiter(source)).toBe(";");
+    expect(parseCsv(source)).toEqual([
+      ["Date", "Description", "Amount", "Balance"],
+      ["2026-08-24", "Card payment", "-12,34", "987,66"],
+      ["2026-08-25", "Transfer", "1.250,00", "2.237,66"],
+    ]);
+  });
+
+  it("uses the bank column row after delimiter-only and report preamble rows", () => {
+    const source = [
+      ";;;;;",
+      "Account statement for August 2026",
+      "Prepared 2026-08-25;;;;;",
+      ";;;;;",
+      ";F;Value date;Booking date;Description;Amount",
+      ";1;2026-08-24;2026-08-24;Card payment;-12,34",
+      ";2;2026-08-25;2026-08-25;Transfer;1.250,00",
+    ].join("\n");
+
+    expect(detectDelimiter(source)).toBe(";");
+    expect(toCsvTable(parseCsv(source))).toEqual({
+      metadata: [
+        ["Account statement for August 2026"],
+        ["Prepared 2026-08-25", "", "", "", "", ""],
+      ],
+      header: ["", "F", "Value date", "Booking date", "Description", "Amount"],
+      rows: [
+        ["", "1", "2026-08-24", "2026-08-24", "Card payment", "-12,34"],
+        ["", "2", "2026-08-25", "2026-08-25", "Transfer", "1.250,00"],
+      ],
+    });
   });
 });

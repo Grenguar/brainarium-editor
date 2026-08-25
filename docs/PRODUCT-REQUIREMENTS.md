@@ -23,7 +23,7 @@ The current corpus uses nested folders, YAML frontmatter, tasks, relative Markdo
 - CSV editing or spreadsheet formulas.
 - Perfect Typora-compatible WYSIWYG or Notion-compatible block behavior.
 - Automatic vault-wide RAG, embeddings, or sending the entire vault to an agent.
-- Community plugin execution, automatic link rewriting on rename, or a global graph.
+- Community plugin execution or automatic link rewriting on rename.
 - Mac App Store distribution; Developer ID signing/notarization is the first target.
 
 ## Core user stories
@@ -34,11 +34,12 @@ The current corpus uses nested folders, YAML frontmatter, tasks, relative Markdo
 - As a writer, I can select text and apply italic, bold, strike, code, highlight, or link formatting.
 - As a writer, I can use right-click or `/` to insert headings, lists, tasks, quotes, code blocks, rules, images, links, and tables.
 - As a writer, I can fall back to raw Markdown for syntax the assisted editor does not understand.
-- As a data reader, I can inspect CSV in a virtualized table.
+- As a data reader, I can inspect CSV in a usable, horizontally scrollable table, including exports with semicolon delimiters, empty fields, and report preambles.
 - As a reader, I can inspect TXT, JSON, XML, and HTML as exact, read-only source and copy a file's current contents.
 - As a navigator, I can open Markdown/wiki-links and see broken, ambiguous, incoming, and outgoing connections.
 - As an agent user, I can ask Codex inline and choose whether to insert, replace, discard, or apply a reviewed multi-range edit.
-- As a user of other editors, I see external changes without losing my own work.
+- As a user of other editors, I see external changes without losing my own work, and an already enabled graph refreshes after Markdown changes.
+- As a local MCP user, I can explicitly configure Claude Desktop or Claude Code for a capability-scoped vault without giving it access to arbitrary folders.
 
 ## P0 requirements and acceptance criteria
 
@@ -48,7 +49,7 @@ The current corpus uses nested folders, YAML frontmatter, tasks, relative Markdo
 
 - Cancel changes nothing.
 - Unreadable/missing folders produce a recoverable error.
-- Brainarium creates no files inside the vault in v1.
+- Brainarium creates no source files inside the vault. After an explicit graph build, it may create only the disclosed, rebuildable `.brainarium/graph-v1.json` cache.
 
 **VLT-02 Switch and remember vaults.** Store display name, path, and last-opened time in app data.
 
@@ -61,11 +62,15 @@ The current corpus uses nested folders, YAML frontmatter, tasks, relative Markdo
 
 ### Discovery and connections
 
-**IDX-01 Supported content.** Index `.md`, `.markdown`, and `.csv` case-insensitively. Ignore `.git`, `node_modules`, caches, and hidden files by default.
+**IDX-01 Supported content.** Index `.md`, `.markdown`, `.csv`, `.txt`, `.json`, `.xml`, `.html`, and `.htm` case-insensitively. Ignore `.git`, `node_modules`, caches, and hidden files by default.
 
 **IDX-02 Resilient metadata.** Derive relative path, filename, title/first heading, frontmatter, mtime, size, and content hash. Malformed frontmatter must still open as text.
 
 **IDX-03 External changes.** Recursively watch and debounce create, modify, rename, and delete events; periodically reconcile because watchers can lose events.
+
+- Native events target a clean tree refresh within one debounce interval; reconciliation is the correctness backstop.
+- A clean open document reloads, while a dirty Markdown editor remains unchanged and displays an external-change state.
+- When `.brainarium/graph-v1.json` exists, a Markdown change rebuilds the cache; other file types do not trigger graph work.
 
 **IDX-04 Quick Open.** `Cmd+P` opens a title/path-only picker over the current vault. It does not require a full-text index; full-text search remains P1.
 
@@ -139,14 +144,14 @@ Wiki-link resolution order:
 
 ## P1 requirements
 
-- Full-text search.
-- Split Reading/Editing view and local/global graphs.
+- Semantic/vector search.
 - Rich table cell editing with deterministic Markdown serialization.
 - Safe rename with link-update preview.
 - Opt-in linked-document/vault retrieval for agents.
 - Persistent agent conversations and user-defined action templates.
 - Independently selectable app-chrome and writing themes plus CSS overrides.
 - Sandboxed signed extension packages and a capability manager.
+- Rich MCP authorization UX in the Electron settings view; the initial external configuration file remains the authority.
 
 ## Non-functional targets
 
@@ -160,14 +165,14 @@ Wiki-link resolution order:
 
 ## Open questions with defaults
 
-| Question | Default for planning |
-|---|---|
-| CodeMirror assisted Markdown or Tiptap/ProseMirror rich document? | CodeMirror first for fidelity; phase-zero round-trip spike can overturn this |
-| How Notion-like should v1 blocks be? | Shortcuts and menus, no drag/reorder block handles yet |
-| Custom Rust in v1? | No; keep a backend port and extract only with performance evidence |
-| Whole-vault Codex access? | No automatic context; read-only search only after explicit user opt-in |
-| Conversation persistence? | Ephemeral per-document sessions in v1 |
-| CSV editing? | Read-only until concrete workflows justify it |
+| Question                                                          | Default for planning                                                                                     |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| CodeMirror assisted Markdown or Tiptap/ProseMirror rich document? | CodeMirror first for fidelity; phase-zero round-trip spike can overturn this                             |
+| How Notion-like should v1 blocks be?                              | Shortcuts and menus, no drag/reorder block handles yet                                                   |
+| Custom Rust in v1?                                                | A narrow, packaged Rust sidecar for the deterministic vault graph only; no Rust document-write authority |
+| Whole-vault Codex access?                                         | No automatic context; read-only search only after explicit user opt-in                                   |
+| Conversation persistence?                                         | Ephemeral per-document sessions in v1                                                                    |
+| CSV editing?                                                      | Read-only until concrete workflows justify it                                                            |
 
 ## Release definition
 
