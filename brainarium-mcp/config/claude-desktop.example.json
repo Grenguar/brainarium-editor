@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "brainarium-vault": {
+      "type": "stdio",
       "command": "uv",
       "args": [
         "run",
