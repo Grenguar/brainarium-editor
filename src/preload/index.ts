@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 import type {
+  RecentVault,
   VaultDocumentContent,
   VaultSnapshot,
 } from "../shared/contracts/vault";
@@ -13,9 +14,18 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:choose"),
   readDocument: (relativePath: string): Promise<VaultDocumentContent> =>
     ipcRenderer.invoke("document:read", relativePath),
+  copyDocumentContent: (relativePath: string): Promise<void> =>
+    ipcRenderer.invoke("document:copyContent", relativePath),
+  listRecentVaults: (): Promise<RecentVault[]> =>
+    ipcRenderer.invoke("vault:listRecent"),
+  openRecentVault: (id: string): Promise<VaultSnapshot> =>
+    ipcRenderer.invoke("vault:openRecent", id),
 });
 
 export type BrainariumApi = {
   chooseVault(): Promise<ChooseVaultResult>;
+  copyDocumentContent(relativePath: string): Promise<void>;
+  listRecentVaults(): Promise<RecentVault[]>;
+  openRecentVault(id: string): Promise<VaultSnapshot>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
 };

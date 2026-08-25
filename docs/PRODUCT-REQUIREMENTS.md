@@ -35,6 +35,7 @@ The current corpus uses nested folders, YAML frontmatter, tasks, relative Markdo
 - As a writer, I can use right-click or `/` to insert headings, lists, tasks, quotes, code blocks, rules, images, links, and tables.
 - As a writer, I can fall back to raw Markdown for syntax the assisted editor does not understand.
 - As a data reader, I can inspect CSV in a virtualized table.
+- As a reader, I can inspect TXT, JSON, XML, and HTML as exact, read-only source and copy a file's current contents.
 - As a navigator, I can open Markdown/wiki-links and see broken, ambiguous, incoming, and outgoing connections.
 - As an agent user, I can ask Codex inline and choose whether to insert, replace, discard, or apply a reviewed multi-range edit.
 - As a user of other editors, I see external changes without losing my own work.

@@ -1,4 +1,5 @@
-export type DocumentKind = "markdown" | "csv";
+export type DocumentKind =
+  "markdown" | "csv" | "text" | "json" | "xml" | "html";
 
 export type VaultDocument = {
   kind: DocumentKind;
@@ -39,4 +40,10 @@ export type VaultDocumentContent = Pick<
   "kind" | "relativePath" | "title"
 > & {
   text: string;
+};
+
+export type RecentVault = {
+  id: string;
+  lastOpenedAt: string;
+  name: string;
 };

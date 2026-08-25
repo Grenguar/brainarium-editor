@@ -39,10 +39,10 @@ describe("readVaultDocument", () => {
   it("refuses files that are not documents in the active snapshot", async () => {
     const root = await temporaryDirectory();
     await writeFile(path.join(root, "note.md"), "# Note\n");
-    await writeFile(path.join(root, "secret.txt"), "not a document\n");
+    await writeFile(path.join(root, "secret.pdf"), "not a document\n");
 
     await expect(
-      readVaultDocument(await scanVault(root), "secret.txt"),
+      readVaultDocument(await scanVault(root), "secret.pdf"),
     ).rejects.toThrow("not part of the active vault");
   });
 

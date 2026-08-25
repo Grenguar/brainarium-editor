@@ -10,7 +10,7 @@ Milestone 0 must keep golden fixtures for CRLF/LF, malformed frontmatter, refere
 
 ## Vault, watcher, and save behavior
 
-The selected directory is the vault. Main-process file operations resolve a real path and check containment. Path traversal is rejected. A symlink may be followed only when its target remains inside the vault; external/unavailable targets are shown as unavailable. Index Markdown and CSV only; binary, invalid-UTF-8, and oversize files are never silently coerced.
+The selected directory is the vault. Main-process file operations resolve a real path and check containment. Path traversal is rejected. A symlink may be followed only when its target remains inside the vault; external/unavailable targets are shown as unavailable. Index only Markdown (`.md`, `.markdown`), CSV, plain text (`.txt`), JSON, XML, and HTML (`.html`, `.htm`); binary, invalid-UTF-8, and oversize files are never silently coerced. Markdown and CSV have dedicated views; TXT, JSON, XML, and HTML are inert, exact-source, read-only previews. Copy always re-reads the active, vault-bound document before placing its current text on the clipboard.
 
 | Buffer state | Disk event | Required behavior |
 |---|---|---|

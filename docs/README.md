@@ -14,14 +14,14 @@ Build the first usable release with Electron and TypeScript:
 - Markdown shortcuts, selection toolbar, and insert/context menus for headings, lists, tasks, quotes, code, links, images, tables, and agents.
 - Electron main process for vault access, file watching, indexing, and Codex process supervision.
 - `codex app-server` over JSONL/stdio behind a provider-neutral agent adapter.
-- Read-only CSV table viewing.
+- Read-only CSV table viewing plus exact-source previews for plain text, JSON, XML, and HTML.
 - In-memory, rebuildable document/link index; extract a Rust sidecar only after profiling.
 
 If custom Rust from day one is non-negotiable, Tauri v2 is cleaner than Electron plus a custom Rust sidecar. The requested Electron design and the alternatives are compared in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## MVP in one sentence
 
-Choose any folder, browse its Markdown and CSV files, read or edit Markdown with rich assistance, follow links and backlinks, switch vaults, and ask Codex at the cursor or selection before explicitly applying its proposed text.
+Choose any folder, browse its supported text files (Markdown, CSV, plain text, JSON, XML, and HTML), read or edit Markdown with rich assistance, follow links and backlinks, switch vaults, and ask Codex at the cursor or selection before explicitly applying its proposed text.
 
 ## Document map
 
@@ -43,7 +43,7 @@ Choose any folder, browse its Markdown and CSV files, read or edit Markdown with
 - Vaults are ordinary user-selected folders; Brainarium never imports or relocates them.
 - Reading mode is rendered; Editing mode is assisted Markdown with rich shortcuts and controls.
 - Markdown remains the saved format. Unsupported syntax always has a raw-source escape hatch.
-- CSV is read-only in v1.
+- CSV is read-only in v1; TXT, JSON, XML, and HTML are exact-source, read-only previews in v1.
 - Backlinks and outgoing links are P0; a global graph is P1.
 - AI and agent changes are proposals. Files change only after explicit Insert, Replace, or Apply Diff.
 - Codex runs vault-scoped and read-only by default; approval requests fail closed in v1.

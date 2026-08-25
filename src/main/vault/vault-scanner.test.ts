@@ -27,7 +27,10 @@ describe("scanVault", () => {
     await mkdir(path.join(root, "notes"));
     await writeFile(path.join(root, "z.csv"), "name,value\\nalpha,1\\n");
     await writeFile(path.join(root, "notes", "Alpha.MD"), "# Alpha\\n");
-    await writeFile(path.join(root, "notes", "ignore.txt"), "not a document");
+    await writeFile(path.join(root, "notes", "plain.txt"), "ordinary text");
+    await writeFile(path.join(root, "notes", "data.json"), "{}");
+    await writeFile(path.join(root, "notes", "layout.html"), "<main />");
+    await writeFile(path.join(root, "notes", "feed.xml"), "<feed />");
     await mkdir(path.join(root, ".git"));
     await writeFile(path.join(root, ".git", "internal.md"), "# ignored");
     await writeFile(path.join(root, ".hidden.md"), "# ignored");
@@ -42,6 +45,10 @@ describe("scanVault", () => {
       ]),
     ).toEqual([
       ["notes/Alpha.MD", "markdown", "Alpha"],
+      ["notes/data.json", "json", "data"],
+      ["notes/feed.xml", "xml", "feed"],
+      ["notes/layout.html", "html", "layout"],
+      ["notes/plain.txt", "text", "plain"],
       ["z.csv", "csv", "z"],
     ]);
     expect(snapshot.tree.children.map((child) => child.relativePath)).toEqual([
@@ -88,14 +95,19 @@ describe("scanVault", () => {
 });
 
 describe("isSupportedVaultDocument", () => {
-  it.each(["note.md", "note.MARKDOWN", "table.CsV"])(
-    "accepts %s",
-    (fileName) => {
-      expect(isSupportedVaultDocument(fileName)).toBe(true);
-    },
-  );
+  it.each([
+    "note.md",
+    "note.MARKDOWN",
+    "table.CsV",
+    "readme.TXT",
+    "data.JSON",
+    "feed.xml",
+    "page.HTM",
+  ])("accepts %s", (fileName) => {
+    expect(isSupportedVaultDocument(fileName)).toBe(true);
+  });
 
-  it.each(["note.txt", ".md", "archive.md.bak"])("rejects %s", (fileName) => {
+  it.each(["note.pdf", ".md", "archive.md.bak"])("rejects %s", (fileName) => {
     expect(isSupportedVaultDocument(fileName)).toBe(false);
   });
 });

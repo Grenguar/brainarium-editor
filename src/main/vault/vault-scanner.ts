@@ -20,6 +20,18 @@ function documentKind(fileName: string): DocumentKind | undefined {
   if (extension === ".csv") {
     return "csv";
   }
+  if (extension === ".txt") {
+    return "text";
+  }
+  if (extension === ".json") {
+    return "json";
+  }
+  if (extension === ".xml") {
+    return "xml";
+  }
+  if (extension === ".html" || extension === ".htm") {
+    return "html";
+  }
   return undefined;
 }
 

@@ -46,7 +46,7 @@ Switching with unresolved save conflicts or an unreviewed agent proposal require
 ### File tree
 
 - Folders before files, alphabetic by default.
-- Icons distinguish Markdown and CSV without visual noise.
+- Icons distinguish Markdown, CSV, plain text, JSON, XML, and HTML without visual noise.
 - Broken/unavailable external symlinks show a lock indicator.
 - Context menu: Open, Reveal in Finder, Copy Relative Path, Copy Wiki-link. Rename is P1.
 - Empty folder, permission error, and deleted file have local recovery states rather than global error pages.

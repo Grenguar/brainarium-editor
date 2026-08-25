@@ -166,6 +166,22 @@ h1 {
   width: 0.75rem;
 }
 
+.recent-vaults {
+  margin-top: 3rem;
+}
+
+.recent-vaults button {
+  background: transparent;
+  color: #59635e;
+  display: block;
+  padding: 0.25rem 0;
+  text-align: left;
+}
+
+.recent-vaults button:hover {
+  color: #273330;
+}
+
 .document-preview {
   border-top: 1px solid #c7c5ba;
   margin-top: 3rem;
@@ -178,6 +194,24 @@ h1 {
   font-size: 1.75rem;
   font-weight: 400;
   margin: 0 0 1rem;
+}
+
+.preview-heading {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.preview-heading button {
+  background: #e0ddd2;
+  color: #273330;
+  flex: none;
+  padding: 0.6rem 0.75rem;
+}
+
+.preview-heading button:hover {
+  background: #d2cfc4;
 }
 
 .document-preview pre {

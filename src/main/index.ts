@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
 
+import { RecentVaultStore } from "./vault/recent-vaults";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument } from "./vault/vault-reader";
 
@@ -7,6 +8,18 @@ declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
 let activeVault: Awaited<ReturnType<typeof scanVault>> | undefined;
+
+const recentVaults = (): RecentVaultStore =>
+  new RecentVaultStore(app.getPath("userData") + "/recent-vaults.json");
+
+async function openVault(
+  vaultPath: string,
+): Promise<Awaited<ReturnType<typeof scanVault>>> {
+  const snapshot = await scanVault(vaultPath);
+  await recentVaults().remember(snapshot.rootPath);
+  activeVault = snapshot;
+  return snapshot;
+}
 
 const createWindow = (): void => {
   const window = new BrowserWindow({
@@ -41,9 +54,26 @@ ipcMain.handle("vault:choose", async (): Promise<unknown> => {
     return { cancelled: true };
   }
 
-  activeVault = await scanVault(result.filePaths[0]);
-  return { cancelled: false, snapshot: activeVault };
+  return { cancelled: false, snapshot: await openVault(result.filePaths[0]) };
 });
+
+ipcMain.handle("vault:listRecent", async (): Promise<unknown> =>
+  recentVaults().list(),
+);
+
+ipcMain.handle(
+  "vault:openRecent",
+  async (_event, id: unknown): Promise<unknown> => {
+    if (typeof id !== "string") {
+      throw new Error("Choose a valid recent vault.");
+    }
+    const vaultPath = await recentVaults().pathFor(id);
+    if (!vaultPath) {
+      throw new Error("That recent vault is no longer available.");
+    }
+    return openVault(vaultPath);
+  },
+);
 
 ipcMain.handle(
   "document:read",
@@ -52,6 +82,17 @@ ipcMain.handle(
       throw new Error("No active vault document is available.");
     }
     return readVaultDocument(activeVault, relativePath);
+  },
+);
+
+ipcMain.handle(
+  "document:copyContent",
+  async (_event, relativePath: unknown): Promise<void> => {
+    if (typeof relativePath !== "string" || !activeVault) {
+      throw new Error("No active vault document is available.");
+    }
+    const document = await readVaultDocument(activeVault, relativePath);
+    clipboard.writeText(document.text);
   },
 );
 
