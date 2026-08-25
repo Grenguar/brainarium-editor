@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 
 import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
+import squirrelStartup from "electron-squirrel-startup";
 
 import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { RecentVaultStore } from "./vault/recent-vaults";
@@ -17,6 +18,20 @@ let activeVault: Awaited<ReturnType<typeof scanVault>> | undefined;
 let mainWindow: BrowserWindow | undefined;
 let vaultWatcher: VaultWatcher | undefined;
 let graphRebuildGeneration = 0;
+
+const appDescription = "A local-first editor for the files you already trust.";
+
+const appInfo = () => ({
+  description: appDescription,
+  name: app.getName(),
+  version: app.getVersion(),
+});
+
+// Squirrel starts the app only to create or remove its Windows shortcut.
+// Quitting immediately keeps normal startup and installer maintenance separate.
+if (squirrelStartup) {
+  app.quit();
+}
 
 const recentVaults = (): RecentVaultStore =>
   new RecentVaultStore(app.getPath("userData") + "/recent-vaults.json");
@@ -96,6 +111,7 @@ const createWindow = (): void => {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    title: `${app.getName()} ${app.getVersion()}`,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -128,6 +144,8 @@ ipcMain.handle("vault:choose", async (): Promise<unknown> => {
 
   return { cancelled: false, snapshot: await openVault(result.filePaths[0]) };
 });
+
+ipcMain.handle("app:info", (): ReturnType<typeof appInfo> => appInfo());
 
 ipcMain.handle("vault:listRecent", async (): Promise<unknown> =>
   recentVaults().list(),
@@ -194,6 +212,12 @@ ipcMain.handle(
 );
 
 app.whenReady().then(() => {
+  app.setAboutPanelOptions({
+    applicationName: app.getName(),
+    applicationVersion: app.getVersion(),
+    copyright: "Copyright © 2026 Brainarium contributors",
+    version: `v${app.getVersion()}`,
+  });
   vaultWatcher = new VaultWatcher((snapshot) => {
     const previousSnapshot = activeVault;
     activeVault = snapshot;

@@ -19,7 +19,8 @@ examples, and identifiers.
 - Normative compatibility/performance contracts: [docs/TECHNICAL-CONTRACTS.md](docs/TECHNICAL-CONTRACTS.md)
 - Local development, testing, and MCP startup: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Rust per-vault MCP: [brainarium-mcp/README.md](brainarium-mcp/README.md)
-- macOS DMG releases and tags: [docs/RELEASING.md](docs/RELEASING.md)
+- Native release packages and tags: [docs/RELEASING.md](docs/RELEASING.md)
+- Electron setup, local run, and packaging: [docs/BUILDING-ELECTRON-APPS.md](docs/BUILDING-ELECTRON-APPS.md)
 
 ## Working rules
 
@@ -79,5 +80,6 @@ cargo build --release
   `changelog:skip` only for the documented exceptions.
 - Do not create or move a release tag casually. `vX.Y.Z` must match
   `package.json`, then [release.yml](.github/workflows/release.yml) produces
-  signed/notarized Apple Silicon and Intel DMGs after protected Apple secrets
-  are available. The full setup is [docs/RELEASING.md](docs/RELEASING.md).
+  signed/notarized Apple Silicon and Intel DMGs plus native Windows/Linux
+  packages after protected Apple secrets are available. The full setup is
+  [docs/RELEASING.md](docs/RELEASING.md).

@@ -2,7 +2,9 @@
   "name": "brainarium",
   "productName": "Brainarium",
   "version": "0.1.0",
-  "description": "A local-first Markdown and CSV vault editor.",
+  "description": "A local-first editor for the files you already trust.",
+  "author": "Brainarium contributors",
+  "homepage": "https://github.com/Grenguar/brainarium-editor",
   "main": ".webpack/main",
   "scripts": {
     "predev": "npm run build:rust",
@@ -25,10 +27,14 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-deb": "7.11.2",
     "@electron-forge/maker-dmg": "7.11.2",
+    "@electron-forge/maker-rpm": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
     "@electron-forge/maker-zip": "7.11.2",
     "@electron-forge/plugin-webpack": "7.11.2",
     "@eslint/js": "9.39.1",
+    "@types/electron-squirrel-startup": "1.0.2",
     "@types/node": "26.3.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
@@ -47,6 +53,7 @@
     "webpack-cli": "7.2.2"
   },
   "dependencies": {
+    "electron-squirrel-startup": "1.0.1",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
     "react": "19.2.8",

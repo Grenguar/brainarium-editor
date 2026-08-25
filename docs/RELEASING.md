@@ -1,12 +1,28 @@
-# Releasing Brainarium for macOS
+# Releasing Brainarium
 
 Status: implemented release pipeline, 2026-08-25. The first public release is blocked until the Apple signing and notarization secrets below are configured.
 
 ## What is shipped
 
-A Git tag matching the package version (for example, `v0.1.0`) triggers [release.yml](../.github/workflows/release.yml). It builds and validates both Apple Silicon (`arm64`) and Intel (`x64`) artifacts, then attaches a signed, notarized DMG, companion ZIP, and `SHA256SUMS.txt` file to the GitHub Release.
+A Git tag matching the package version (for example, `v0.1.0`) triggers
+[release.yml](../.github/workflows/release.yml). It builds and validates native
+artifacts on their target OS, then attaches the following to the GitHub Release:
 
-Users update manually in v1: quit Brainarium, open the newer DMG, drag Brainarium to `/Applications`, and choose **Replace**. The ZIP is retained for a future in-app update feed; automatic updating is intentionally not enabled until the repository's distribution/privacy policy is decided.
+| Platform | Architectures | Artifacts | Production trust state |
+| --- | --- | --- | --- |
+| macOS | Apple Silicon and Intel | signed/notarized DMG and ZIP | Developer ID + Apple notarization |
+| Windows | x64 | Squirrel Setup `.exe` and `.nupkg` | unsigned until Windows code signing is configured |
+| Debian/Ubuntu | x64 | `.deb` | SHA-256 checksum until repository signing is configured |
+| Fedora/RHEL/openSUSE-style | x64 | `.rpm` | SHA-256 checksum until repository signing is configured |
+
+The release is published only after all target jobs succeed. The macOS job is
+the protected signing/notarization gate: without its Apple credentials the
+workflow fails before it can create a public release.
+
+Users update manually in v1: quit Brainarium, run the new native installer for
+their platform, and replace the existing application when asked. The macOS ZIP
+is retained for a future in-app update feed; automatic updating is intentionally
+not enabled until the repository's distribution/privacy policy is decided.
 
 ## One-time GitHub setup
 
@@ -43,13 +59,26 @@ Paste the first result into `BRAINARIUM_MACOS_CERTIFICATE_P12` and the second in
    git push origin v0.1.0
    ```
 
-4. Watch the **Release macOS** workflow. It verifies that the tag and package version match, validates the app, signs and notarizes the two architecture builds, and creates the GitHub Release only after both succeed.
-5. Download the DMG from the release and test it on a clean macOS account before announcing it.
+4. Watch the **Release Brainarium** workflow. It verifies that the tag and
+   package version match, validates the app on each native target, signs and
+   notarizes the two macOS builds, and creates the GitHub Release only after all
+   package jobs succeed.
+5. Download the artifact for each supported platform and test it on a clean
+   account before announcing it. Verify `SHA256SUMS.txt` before installing an
+   unsigned Windows or Linux package.
 
 To rebuild an existing tag after a transient failure, use **Run workflow** with that exact tag. Do not move a published version tag.
 
 ## Local packaging
 
-`npm run make` creates unsigned local DMG and ZIP files under `out/make/`; macOS can build DMGs only on macOS. This is useful for development testing, but it is not a public distribution artifact and may be blocked by Gatekeeper.
+`npm run make` creates artifacts for the current host OS under `out/make/`:
+macOS creates an unsigned DMG/ZIP, Windows creates Squirrel Setup, and Linux
+creates `.deb`/`.rpm` packages. Build on the OS you intend to test; the tagged
+GitHub Actions workflow is the authoritative cross-platform build. Local macOS
+artifacts are not public distribution artifacts and may be blocked by Gatekeeper.
 
-For the supported build, test, and MCP startup commands, see [CONTRIBUTING.md](../CONTRIBUTING.md). The security and product rationale is recorded in [ADR-004](adr/004-macos-release-distribution.md).
+For the supported build, test, and MCP startup commands, see
+[CONTRIBUTING.md](../CONTRIBUTING.md) and
+[BUILDING-ELECTRON-APPS.md](BUILDING-ELECTRON-APPS.md). The security and
+distribution rationale is recorded in [ADR-004](adr/004-macos-release-distribution.md)
+and [ADR-005](adr/005-cross-platform-native-packages.md).

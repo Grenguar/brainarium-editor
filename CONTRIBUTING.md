@@ -2,7 +2,8 @@
 
 ## Local development
 
-Prerequisites: macOS, Node 22, Rust stable, and npm. From the repository root:
+Prerequisites: Node 22, Rust stable, and npm. Build and package an installer on
+the operating system you target. From the repository root:
 
 ```sh
 npm ci
@@ -17,9 +18,11 @@ command is `npm ci`.
 
 Use `npm run test:watch` while changing unit-tested code. `npm run quality`
 runs the formatter check, linter, type check, complete TypeScript and Rust test
-suites, strict Rust Clippy, and production package. `npm run make` creates an
-unsigned local DMG and ZIP under `out/make/`; see [docs/RELEASING.md](docs/RELEASING.md)
-for the signed GitHub-release path.
+suites, strict Rust Clippy, and production package. `npm run make` creates the
+native artifacts for the current host under `out/make/`: a macOS DMG/ZIP,
+Windows Setup, Debian/Ubuntu `.deb`, or RPM `.rpm` as applicable. See
+[docs/BUILDING-ELECTRON-APPS.md](docs/BUILDING-ELECTRON-APPS.md) for the
+package flow and [docs/RELEASING.md](docs/RELEASING.md) for protected releases.
 
 ## Local MCP
 
@@ -34,7 +37,7 @@ BRAINARIUM_VAULT="/absolute/path/to/vault" \
 ```
 
 See [brainarium-mcp/README.md](brainarium-mcp/README.md) for Cargo, Docker,
-Claude Desktop, and per-vault configuration instructions.
+Claude Desktop, Claude Code, Codex, and per-vault configuration instructions.
 
 ## Required pull-request tags
 

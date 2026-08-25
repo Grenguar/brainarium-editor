@@ -39,7 +39,7 @@ Copy the values from `.env.example` into the MCP host configuration; do not load
 
 ```sh
 export BRAINARIUM_VAULT="/absolute/path/to/vault"
-export BRAINARIUM_MCP_ALLOW_WRITE=true
+export BRAINARIUM_MCP_ALLOW_WRITE=false
 ```
 
 Each Claude Desktop or Claude Code configuration should start a separate process for the vault it is permitted to access. Changing the selected Brainarium vault requires changing or restarting that MCP process; it is deliberately not a broad home-directory server.
@@ -66,28 +66,75 @@ Set `BRAINARIUM_MCP_BINARY=/absolute/path/to/brainarium-mcp` to make the launche
 
 ## Run in Docker
 
-Build a local image and run it as a stdio child process:
+Build the local image once. Any MCP client below starts it as its stdio child
+process; Brainarium itself does not need to be running.
 
 ```sh
 docker build -f brainarium-mcp/Dockerfile -t brainarium-mcp:local .
+```
+
+Use a read-only mount by default. It is a second safety boundary in addition to
+the server's disabled `write_file` tool:
+
+```sh
 docker run --rm -i \
+  --mount "type=bind,src=/absolute/path/to/vault,dst=/vault,readonly" \
   -e BRAINARIUM_VAULT=/vault \
-  -e BRAINARIUM_MCP_ALLOW_WRITE=true \
-  -v "/absolute/path/to/vault:/vault:rw" \
+  -e BRAINARIUM_MCP_ALLOW_WRITE=false \
   brainarium-mcp:local
 ```
 
-For local development, `compose.yaml` binds a single host vault at `/vault`:
+For local development, Compose uses the same read-only default:
 
 ```sh
 export BRAINARIUM_VAULT_HOST="/absolute/path/to/vault"
-export BRAINARIUM_MCP_ALLOW_WRITE=true
 docker compose -f brainarium-mcp/compose.yaml run --rm brainarium-mcp
 ```
 
-## Claude configuration examples
+To deliberately enable writes in development, use both an explicit `true` and
+the write override. This is the only Compose invocation that creates a writable
+bind mount:
 
-`config/claude-desktop.example.json` starts the `uv` launcher. `config/docker-mcp.example.json` starts an image with an explicit single-vault bind mount. Copy the relevant `mcpServers.brainarium-vault` entry into the host's MCP configuration, then replace every placeholder path. The two configuration examples make no assumptions about a particular vault name.
+```sh
+export BRAINARIUM_VAULT_HOST="/absolute/path/to/vault"
+docker compose \
+  -f brainarium-mcp/compose.yaml \
+  -f brainarium-mcp/compose.write.yaml \
+  run --rm brainarium-mcp
+```
+
+## Docker MCP configuration
+
+Each configuration starts exactly one container for exactly one vault. Build
+the image first, then copy an example and replace the absolute host path. The
+examples are read-only (`BRAINARIUM_MCP_ALLOW_WRITE=false` and `:ro`) so a
+client cannot alter a vault until you deliberately change **both** values.
+
+| Client | Read-only Docker example | Install / verify |
+| --- | --- | --- |
+| Claude Desktop | [`config/claude-desktop.docker.example.json`](config/claude-desktop.docker.example.json) | Copy the `brainarium-vault` entry into the Claude Desktop MCP configuration, restart Claude Desktop, then use `vault_status`. |
+| Claude Code | [`config/claude-code.docker.example.json`](config/claude-code.docker.example.json) | `claude mcp add --transport stdio --scope user brainarium-vault -- docker run --rm -i -e BRAINARIUM_VAULT=/vault -e BRAINARIUM_MCP_ALLOW_WRITE=false -v /absolute/path/to/vault:/vault:ro brainarium-mcp:local`, then `claude mcp get brainarium-vault`. |
+| Codex | [`config/codex.docker.example.toml`](config/codex.docker.example.toml) | Copy the table into `~/.codex/config.toml`, restart Codex, then use `codex mcp get brainarium_vault`. Alternatively run `codex mcp add brainarium-vault -- docker run --rm -i -e BRAINARIUM_VAULT=/vault -e BRAINARIUM_MCP_ALLOW_WRITE=false -v /absolute/path/to/vault:/vault:ro brainarium-mcp:local`. |
+| Other stdio MCP clients | [`config/docker-mcp.example.json`](config/docker-mcp.example.json) | Use its `command` and `args` as the client's stdio server entry, then ask it to call `vault_status`. |
+
+`claude mcp add` treats everything after `--` as the local server command;
+the command above deliberately puts Docker and all Docker flags after that
+separator. Claude Code's own MCP reference documents this local-stdio form and
+the `claude mcp get` health check.
+
+For a native (non-Docker) Claude Desktop setup, use
+[`config/claude-desktop.example.json`](config/claude-desktop.example.json). It
+starts the Rust server through `uv` and remains read-only until you explicitly
+set `BRAINARIUM_MCP_ALLOW_WRITE=true`.
+
+## Write access
+
+For a Docker MCP entry, change `BRAINARIUM_MCP_ALLOW_WRITE` to `true` **and**
+the bind mount suffix from `:ro` to `:rw`, then restart the client. Keep the
+host path fixed to the exact vault chosen in Brainarium. `write_file` still
+requires the `version` returned by `read_file`; a stale agent context cannot
+overwrite a newer file. A Markdown write rebuilds the vault's derived graph
+cache, and Brainarium's watcher shows that source change when it is open.
 
 ## Validation
 

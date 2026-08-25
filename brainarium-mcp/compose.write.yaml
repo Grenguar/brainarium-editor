@@ -1,0 +1,6 @@
+services:
+  brainarium-mcp:
+    environment:
+      BRAINARIUM_MCP_ALLOW_WRITE: "true"
+    volumes:
+      - ${BRAINARIUM_VAULT_HOST:?Set BRAINARIUM_VAULT_HOST to the host vault path}:/vault:rw

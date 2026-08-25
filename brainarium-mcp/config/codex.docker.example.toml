@@ -1,0 +1,16 @@
+# Copy this entry into ~/.codex/config.toml, then replace the host vault path.
+# This server is deliberately read-only at both the MCP and Docker-mount layers.
+[mcp_servers.brainarium_vault]
+command = "docker"
+args = [
+  "run",
+  "--rm",
+  "-i",
+  "-e",
+  "BRAINARIUM_VAULT=/vault",
+  "-e",
+  "BRAINARIUM_MCP_ALLOW_WRITE=false",
+  "-v",
+  "/absolute/path/to/the-same-vault-selected-in-Brainarium:/vault:ro",
+  "brainarium-mcp:local",
+]

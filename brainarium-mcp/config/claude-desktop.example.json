@@ -11,7 +11,7 @@
       ],
       "env": {
         "BRAINARIUM_VAULT": "/absolute/path/to/the-same-vault-selected-in-Brainarium",
-        "BRAINARIUM_MCP_ALLOW_WRITE": "true",
+        "BRAINARIUM_MCP_ALLOW_WRITE": "false",
         "BRAINARIUM_MCP_MAX_FILE_BYTES": "5242880"
       }
     }

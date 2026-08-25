@@ -43,8 +43,37 @@ button:disabled {
   font-size: 1.5rem;
   height: 3rem;
   justify-content: center;
-  margin-bottom: 2rem;
   width: 3rem;
+}
+
+.brand-lockup,
+.sidebar-app-identity {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.brand-lockup {
+  margin-bottom: 2rem;
+}
+
+.brand-name,
+.sidebar-app-name {
+  color: #273330;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+
+.brand-version,
+.sidebar-app-version {
+  color: #76807a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0.2rem 0 0;
+  text-transform: uppercase;
 }
 
 .eyebrow,
@@ -121,6 +150,25 @@ h1 {
   color: #68716c;
   font-size: 0.85rem;
   margin: 0.65rem 0 1.5rem;
+}
+
+.sidebar-app-identity {
+  border-bottom: 1px solid #c7c5ba;
+  margin: -0.5rem 0 1.5rem;
+  padding-bottom: 1.25rem;
+}
+
+.sidebar-monogram {
+  align-items: center;
+  background: #273330;
+  border-radius: 0.45rem 0.45rem 0.45rem 0.1rem;
+  color: #f6f3e9;
+  display: inline-flex;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.25rem;
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
 }
 
 .vault-sidebar h1 {

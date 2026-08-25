@@ -8,6 +8,6 @@ services:
       BRAINARIUM_MCP_ALLOW_WRITE: ${BRAINARIUM_MCP_ALLOW_WRITE:-false}
       BRAINARIUM_MCP_MAX_FILE_BYTES: ${BRAINARIUM_MCP_MAX_FILE_BYTES:-5242880}
     volumes:
-      - ${BRAINARIUM_VAULT_HOST:?Set BRAINARIUM_VAULT_HOST to the host vault path}:/vault:rw
+      - ${BRAINARIUM_VAULT_HOST:?Set BRAINARIUM_VAULT_HOST to the host vault path}:/vault:ro
     stdin_open: true
     tty: false

@@ -5,6 +5,7 @@ import Graph from "graphology";
 import Sigma from "sigma";
 
 import type {
+  BrainariumAppInfo,
   RecentVault,
   VaultDocumentContent,
   VaultLinkGraph,
@@ -438,7 +439,14 @@ const EyeIcon = (): React.JSX.Element => (
   </svg>
 );
 
+const defaultAppInfo: BrainariumAppInfo = {
+  description: "A local-first editor for the files you already trust.",
+  name: "Brainarium",
+  version: "",
+};
+
 const App = (): React.JSX.Element => {
+  const [appInfo, setAppInfo] = useState<BrainariumAppInfo>(defaultAppInfo);
   const [snapshot, setSnapshot] = useState<VaultSnapshot>();
   const [document, setDocument] = useState<VaultDocumentContent>();
   const [recentVaults, setRecentVaults] = useState<RecentVault[]>([]);
@@ -479,6 +487,10 @@ const App = (): React.JSX.Element => {
 
   useEffect(() => {
     void refreshRecents();
+  }, []);
+
+  useEffect(() => {
+    void window.brainarium.appInfo().then(setAppInfo);
   }, []);
 
   useEffect(() => {
@@ -714,6 +726,17 @@ const App = (): React.JSX.Element => {
       <main className="vault-shell">
         <aside className="vault-sidebar">
           <div className="vault-sidebar-heading">
+            <div className="sidebar-app-identity">
+              <span aria-hidden="true" className="sidebar-monogram">
+                B
+              </span>
+              <div>
+                <p className="sidebar-app-name">{appInfo.name}</p>
+                <p className="sidebar-app-version">
+                  {appInfo.version ? `v${appInfo.version}` : "Local app"}
+                </p>
+              </div>
+            </div>
             <p className="eyebrow">OPEN VAULT</p>
             <h1>{snapshot.tree.name}</h1>
             <p>{snapshot.documents.length} readable documents</p>
@@ -1074,15 +1097,23 @@ const App = (): React.JSX.Element => {
 
   return (
     <main className="welcome-shell">
-      <div className="wordmark" aria-hidden="true">
-        B.
+      <div className="brand-lockup">
+        <div className="wordmark" aria-hidden="true">
+          B
+        </div>
+        <div>
+          <p className="brand-name">{appInfo.name}</p>
+          <p className="brand-version">
+            {appInfo.version ? `Version ${appInfo.version}` : "Local app"}
+          </p>
+        </div>
       </div>
       <p className="eyebrow">LOCAL-FIRST NOTEBOOK</p>
       <h1>A quiet place for the files you already trust.</h1>
       <p className="welcome-copy">
-        Open any folder of Markdown, CSV, plain text, JSON, XML, and HTML files.
-        Brainarium keeps the vault where it is and leaves its source in your
-        hands.
+        {appInfo.description} Open any folder of Markdown, CSV, plain text,
+        JSON, XML, and HTML files. Brainarium keeps the vault where it is and
+        leaves its source in your hands.
       </p>
       <button
         className="primary-action"

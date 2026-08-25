@@ -47,7 +47,8 @@ The renderer never receives arbitrary filesystem or process APIs. It receives im
 - Pure-JS streaming CSV parser plus a virtualized table.
 - `chokidar` or a small watcher adapter in the main process, with reconciliation.
 - Zod or equivalent runtime schemas at every IPC and agent boundary.
-- Electron Forge makers/signing/notarization for macOS artifacts.
+- Electron Forge makers for macOS DMG/ZIP, Windows Setup, Debian, and RPM
+  artifacts; Developer ID signing/notarization for macOS production releases.
 - Rust `serde`/`serde_json` for the versioned graph cache; do not add a graph database, parser framework, or native full-text engine until measurement requires one.
 
 Versions must be pinned after the implementation spike. Context7 verification was attempted but blocked by an invalid configured key; official documentation is the current evidence source.

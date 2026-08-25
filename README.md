@@ -1,7 +1,16 @@
 # Brainarium
 
-Brainarium is a proposed macOS-first, local-first editor for folder-backed Markdown knowledge vaults. It combines a quiet writing surface, vault navigation and links, Markdown-native editing assistance, and reviewed Codex proposals without introducing a proprietary storage format.
+Brainarium is a local-first Electron/Rust editor for folder-backed knowledge
+vaults. It reads Markdown, CSV, plain text, JSON, XML, and HTML without moving
+the selected folder or introducing a proprietary storage format.
 
-This repository currently contains the product and technical specification only; no application scaffold or runnable build is present yet.
+## Run the app
 
-Start with [the documentation overview](docs/README.md). The initial delivery gate is the phase-zero implementation spike in [the implementation plan](docs/IMPLEMENTATION-PLAN.md).
+```sh
+npm ci
+npm run dev
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, tests, packaging, and
+the independent Rust MCP. Start with [the documentation overview](docs/README.md)
+for the product and technical contracts.

@@ -8,7 +8,13 @@ Brainarium is a macOS-first local application. Users need an installable artifac
 
 ## Decision
 
-Use an annotated, immutable semantic version tag (`vX.Y.Z`) to trigger GitHub Actions. The release pipeline builds native `arm64` and `x64` packages on macOS runners, validates the normal production build, signs the app with a Developer ID Application certificate, notarizes it with App Store Connect API credentials, verifies the result, and publishes a DMG plus ZIP to the matching GitHub Release.
+Use an annotated, immutable semantic version tag (`vX.Y.Z`) to trigger GitHub
+Actions. The release pipeline builds native `arm64` and `x64` packages on macOS
+runners, validates the normal production build, signs the app with a Developer
+ID Application certificate, notarizes it with App Store Connect API credentials,
+verifies the result, and publishes a DMG plus ZIP to the matching GitHub
+Release. It also requires the separately packaged Windows and Linux artifacts
+defined in ADR-005 before publication.
 
 The first delivery mechanism is a manual DMG update: replace the installed application in `/Applications`. The ZIP is published because Electron's macOS updater requires it, but no automatic update client or release feed is enabled in v1. The `release` environment owns all Apple credentials. Missing credentials fail the workflow before a public release is created.
 

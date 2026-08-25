@@ -61,3 +61,10 @@ export type VaultLinkGraph = {
   edges: Array<{ source: string; target: string }>;
   nodes: Array<Pick<VaultDocument, "relativePath" | "title">>;
 };
+
+/** Public application identity exposed through the narrow preload bridge. */
+export type BrainariumAppInfo = {
+  description: string;
+  name: string;
+  version: string;
+};

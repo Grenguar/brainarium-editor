@@ -1,6 +1,6 @@
-# Brainarium planning documentation
+# Brainarium documentation
 
-Status: proposed MVP specification, 2026-08-25.
+Status: implementation and MVP specification, 2026-08-25.
 
 Brainarium is a macOS-first, local-first editor and viewer for folder-based knowledge vaults. It combines a minimal Typora-like writing surface, Obsidian-style vaults and links, Notion-like editing assistance, and extensible agent actions starting with local Codex.
 
@@ -38,7 +38,8 @@ Choose any folder, browse its supported text files (Markdown, CSV, plain text, J
 | [TECHNICAL-CONTRACTS.md](TECHNICAL-CONTRACTS.md)               | Normative source-fidelity, vault, agent, and performance contracts                                       |
 | [adr/001-editor-engine-gate.md](adr/001-editor-engine-gate.md) | Editor-engine decision gate                                                                              |
 | [GITHUB-ACTIONS-PLAN.md](GITHUB-ACTIONS-PLAN.md)               | Staged CI, security, release, label-sync, and branch-protection plan                                     |
-| [RELEASING.md](RELEASING.md)                                   | Signed macOS DMG release setup, version tags, and manual update procedure                                |
+| [RELEASING.md](RELEASING.md)                                   | Native macOS, Windows, and Linux packages; signing setup, version tags, and manual updates              |
+| [BUILDING-ELECTRON-APPS.md](BUILDING-ELECTRON-APPS.md)         | Create a separate Electron app, run Brainarium locally, and make native platform packages               |
 
 ## Default MVP decisions
 

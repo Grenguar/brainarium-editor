@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 import type {
+  BrainariumAppInfo,
   RecentVault,
   VaultDocumentContent,
   VaultLinkGraph,
@@ -12,6 +13,7 @@ type ChooseVaultResult =
   { cancelled: true } | { cancelled: false; snapshot: VaultSnapshot };
 
 contextBridge.exposeInMainWorld("brainarium", {
+  appInfo: (): Promise<BrainariumAppInfo> => ipcRenderer.invoke("app:info"),
   chooseVault: (): Promise<ChooseVaultResult> =>
     ipcRenderer.invoke("vault:choose"),
   readDocument: (relativePath: string): Promise<VaultDocumentContent> =>
@@ -55,6 +57,7 @@ contextBridge.exposeInMainWorld("brainarium", {
 });
 
 export type BrainariumApi = {
+  appInfo(): Promise<BrainariumAppInfo>;
   chooseVault(): Promise<ChooseVaultResult>;
   copyDocumentContent(relativePath: string): Promise<void>;
   buildVaultLinkGraph(): Promise<VaultLinkGraph>;

@@ -37,6 +37,18 @@ MCP paths are normalized, non-hidden relative paths to supported UTF-8 files onl
 
 This is intentional authority separation: the built-in Codex provider remains proposal-only under this document's agent contract, while an owner who installs `brainarium-mcp` and configures `read-write` for a vault grants that MCP server direct, capability-scoped write access. The initial MCP exposes no delete, rename, shell, network, arbitrary-folder, or graph-cache mutation tools.
 
+## Distribution boundary
+
+Release builds run on their native target OS: signed/notarized macOS DMG and
+ZIP artifacts for Apple Silicon and Intel, a Windows x64 Squirrel Setup `.exe`,
+and Linux x64 `.deb` and `.rpm` packages. A release is published only after all
+four platform jobs and the protected macOS signing/notarization job succeed;
+the version tag must equal `package.json`. Native installers never include a
+vault, an MCP configuration, or a user-specific filesystem permission. The
+Windows and Linux packages are unsigned in the initial release policy, so their
+installer provenance is the GitHub Release checksum until their respective
+signing decisions are closed.
+
 ## Agent safety and protocol
 
 The main process starts `codex app-server` over JSONL stdio, keeps protocol stdout separate from redacted stderr diagnostics, scopes cwd to the active vault, and passes an explicit environment allowlist. It initializes before a thread/turn and normalizes native events. A native patch or tool request is never applied directly: it becomes a bounded `WorkspaceEdit`, is path/version-validated, and is shown as a proposal/diff.
