@@ -149,7 +149,14 @@ h1 {
 }
 
 .tree-file {
+  background: transparent;
   color: #59635e;
+  padding: 0;
+  text-align: left;
+}
+
+.tree-file:hover {
+  color: #273330;
 }
 
 .tree-file span {
@@ -157,6 +164,34 @@ h1 {
   display: inline-block;
   margin-right: 0.45rem;
   width: 0.75rem;
+}
+
+.document-preview {
+  border-top: 1px solid #c7c5ba;
+  margin-top: 3rem;
+  max-width: 52rem;
+  padding-top: 2rem;
+}
+
+.document-preview h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  margin: 0 0 1rem;
+}
+
+.document-preview pre {
+  background: #f6f3e9;
+  border-left: 3px solid #d86d45;
+  box-sizing: border-box;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  margin: 0;
+  max-height: 30rem;
+  overflow: auto;
+  padding: 1.25rem;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 560px) {

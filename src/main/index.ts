@@ -1,9 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 
 import { scanVault } from "./vault/vault-scanner";
+import { readVaultDocument } from "./vault/vault-reader";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
+
+let activeVault: Awaited<ReturnType<typeof scanVault>> | undefined;
 
 const createWindow = (): void => {
   const window = new BrowserWindow({
@@ -38,8 +41,19 @@ ipcMain.handle("vault:choose", async (): Promise<unknown> => {
     return { cancelled: true };
   }
 
-  return { cancelled: false, snapshot: await scanVault(result.filePaths[0]) };
+  activeVault = await scanVault(result.filePaths[0]);
+  return { cancelled: false, snapshot: activeVault };
 });
+
+ipcMain.handle(
+  "document:read",
+  async (_event, relativePath: unknown): Promise<unknown> => {
+    if (typeof relativePath !== "string" || !activeVault) {
+      throw new Error("No active vault document is available.");
+    }
+    return readVaultDocument(activeVault, relativePath);
+  },
+);
 
 app.whenReady().then(() => {
   createWindow();

@@ -1,16 +1,32 @@
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
 
-import type { VaultSnapshot, VaultTreeNode } from "../shared/contracts/vault";
+import type {
+  VaultDocumentContent,
+  VaultSnapshot,
+  VaultTreeNode,
+} from "../shared/contracts/vault";
 
 import "./styles.css";
 
-const TreeNode = ({ node }: { node: VaultTreeNode }): React.JSX.Element => {
+const TreeNode = ({
+  node,
+  onSelect,
+}: {
+  node: VaultTreeNode;
+  onSelect: (relativePath: string) => void;
+}): React.JSX.Element => {
   if (node.kind !== "directory") {
     return (
-      <li className="tree-file">
-        <span aria-hidden="true">{node.kind === "csv" ? "▦" : "⌁"}</span>
-        {node.name}
+      <li>
+        <button
+          className="tree-file"
+          type="button"
+          onClick={() => onSelect(node.relativePath)}
+        >
+          <span aria-hidden="true">{node.kind === "csv" ? "▦" : "⌁"}</span>
+          {node.name}
+        </button>
       </li>
     );
   }
@@ -21,7 +37,11 @@ const TreeNode = ({ node }: { node: VaultTreeNode }): React.JSX.Element => {
       {node.children.length > 0 && (
         <ul>
           {node.children.map((child) => (
-            <TreeNode key={child.relativePath} node={child} />
+            <TreeNode
+              key={child.relativePath}
+              node={child}
+              onSelect={onSelect}
+            />
           ))}
         </ul>
       )}
@@ -31,6 +51,7 @@ const TreeNode = ({ node }: { node: VaultTreeNode }): React.JSX.Element => {
 
 const App = (): React.JSX.Element => {
   const [snapshot, setSnapshot] = useState<VaultSnapshot>();
+  const [document, setDocument] = useState<VaultDocumentContent>();
   const [isChoosing, setIsChoosing] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -41,6 +62,7 @@ const App = (): React.JSX.Element => {
       const result = await window.brainarium.chooseVault();
       if (!result.cancelled) {
         setSnapshot(result.snapshot);
+        setDocument(undefined);
       }
     } catch {
       setError(
@@ -48,6 +70,17 @@ const App = (): React.JSX.Element => {
       );
     } finally {
       setIsChoosing(false);
+    }
+  };
+
+  const readDocument = async (relativePath: string): Promise<void> => {
+    setError(undefined);
+    try {
+      setDocument(await window.brainarium.readDocument(relativePath));
+    } catch {
+      setError(
+        "Brainarium could not read that file. It may have changed outside the vault.",
+      );
     }
   };
 
@@ -71,9 +104,26 @@ const App = (): React.JSX.Element => {
         <section className="vault-tree" aria-label="Vault files">
           <p className="section-label">FILES</p>
           <ul>
-            <TreeNode node={snapshot.tree} />
+            <TreeNode
+              node={snapshot.tree}
+              onSelect={(relativePath) => void readDocument(relativePath)}
+            />
           </ul>
         </section>
+        {document && (
+          <section className="document-preview" aria-label="Document preview">
+            <p className="section-label">
+              SOURCE PREVIEW · {document.kind.toUpperCase()}
+            </p>
+            <h2>{document.title}</h2>
+            <pre>{document.text}</pre>
+          </section>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
         {snapshot.issues.length > 0 && (
           <p className="notice">
             {snapshot.issues.length} unavailable item

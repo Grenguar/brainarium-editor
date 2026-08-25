@@ -33,3 +33,10 @@ export type VaultSnapshot = {
   rootPath: string;
   tree: VaultTreeDirectory;
 };
+
+export type VaultDocumentContent = Pick<
+  VaultDocument,
+  "kind" | "relativePath" | "title"
+> & {
+  text: string;
+};
