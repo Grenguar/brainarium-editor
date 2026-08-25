@@ -1,0 +1,16 @@
+# Brainarium open decisions and validation register
+
+Status: active, 2026-08-25. These items are intentionally unresolved. Validate them with fixtures, a spike, or user testing before converting them to an ADR.
+
+| ID | Decision or uncertainty | Current default | Evidence needed | Target gate |
+|---|---|---|---|---|
+| OPN-01 | Editor engine | CodeMirror assisted Markdown | Golden round trips, cursor/IME, selection, copy/paste, screen-reader rubric | Milestone 0 |
+| OPN-02 | Markdown compatibility | CommonMark + GFM and documented wiki-links; raw fallback for all else | Fixture catalog and parser/renderer results | Milestone 0 |
+| OPN-03 | Reading-mode task toggles | Read-only unless an exact Markdown transaction is proven | Accessibility and source-fidelity test | Milestone 2 |
+| OPN-04 | Alias/frontmatter resolution | Title/filename only until fixture evidence supports aliases | Duplicate-title, case, alias, fragment fixtures | Milestone 3 |
+| OPN-05 | Case-sensitive volumes | Preserve filesystem semantics; never resolve ambiguously | Default and case-sensitive volume tests | Milestone 1 |
+| OPN-06 | macOS distribution route | Developer ID; no App Sandbox in v1 | Packaging, signing, clean-machine launch evidence | Milestone 5 |
+| OPN-07 | Context7 verification | Blocked by invalid configured credential | Successful source record | Before dependency/version pinning |
+| OPN-08 | Diagnostics retention, telemetry, update feed | No telemetry; redacted local diagnostics only | Privacy and release-policy decision | Milestone 5 |
+
+An unresolved item is not permission to implement arbitrary behavior: use the declared default only where one exists and retain a safe fallback.

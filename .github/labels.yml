@@ -1,0 +1,19 @@
+# Declarative label taxonomy. Sync manually or with a future label-sync workflow.
+labels:
+  - { name: "type:feature", color: "0E8A16", description: "New user capability" }
+  - { name: "type:bug", color: "D73A4A", description: "Incorrect behavior" }
+  - { name: "type:docs", color: "0075CA", description: "Documentation or specification" }
+  - { name: "type:chore", color: "C5DEF5", description: "Tooling, dependency, or maintenance work" }
+  - { name: "type:security", color: "B60205", description: "Security or privacy work" }
+  - { name: "area:desktop", color: "5319E7", description: "Electron shell, main, preload, or packaging" }
+  - { name: "area:editor", color: "5319E7", description: "Markdown editing or reading" }
+  - { name: "area:vault", color: "5319E7", description: "Filesystem, index, links, or CSV" }
+  - { name: "area:agent", color: "5319E7", description: "Codex, extensions, or proposal flow" }
+  - { name: "area:ci", color: "5319E7", description: "Automation, release, or repository operations" }
+  - { name: "priority:p0", color: "B60205", description: "Blocking MVP or data/security risk" }
+  - { name: "priority:p1", color: "FBCA04", description: "Important planned work" }
+  - { name: "priority:p2", color: "0E8A16", description: "Useful but deferrable" }
+  - { name: "status:needs-triage", color: "EDEDED", description: "Awaiting scope or ownership" }
+  - { name: "status:blocked", color: "D93F0B", description: "Blocked by an external dependency or decision" }
+  - { name: "status:ready-for-review", color: "0E8A16", description: "Author reports required checks complete" }
+  - { name: "changelog:skip", color: "FFFFFF", description: "No user-visible release-note entry required" }

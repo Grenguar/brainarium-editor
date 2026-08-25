@@ -1,0 +1,17 @@
+# Dependency and build output (added when the Electron scaffold lands)
+node_modules/
+out/
+dist/
+release/
+coverage/
+
+# Local and derived tooling state
+.ac-index-*/
+graphify-out/
+.planning/graphs/20*/
+
+# Local environment and diagnostics
+.env
+.env.*
+*.log
+.DS_Store
