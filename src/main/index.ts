@@ -1,4 +1,6 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
+
+import { scanVault } from "./vault/vault-scanner";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -24,6 +26,20 @@ const createWindow = (): void => {
 
   window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 };
+
+ipcMain.handle("vault:choose", async (): Promise<unknown> => {
+  const result = await dialog.showOpenDialog({
+    buttonLabel: "Open vault",
+    properties: ["openDirectory"],
+    title: "Choose a Brainarium vault",
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { cancelled: true };
+  }
+
+  return { cancelled: false, snapshot: await scanVault(result.filePaths[0]) };
+});
 
 app.whenReady().then(() => {
   createWindow();

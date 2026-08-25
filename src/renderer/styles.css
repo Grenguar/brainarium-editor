@@ -1,14 +1,167 @@
 :root {
-  color: #1f2937;
-  background: #f8fafc;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #273330;
+  background: #e7e4da;
+  font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif;
 }
 
 body {
   margin: 0;
 }
 
-main {
+button {
+  border: 0;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+button:focus-visible {
+  outline: 3px solid #d86d45;
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.welcome-shell {
+  box-sizing: border-box;
+  display: grid;
+  align-content: center;
+  min-height: 100vh;
+  padding: clamp(2rem, 8vw, 9rem);
+}
+
+.wordmark {
+  align-items: center;
+  background: #273330;
+  border-radius: 50%;
+  color: #f6f3e9;
+  display: flex;
+  font-family: Georgia, serif;
+  font-size: 1.5rem;
+  height: 3rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  width: 3rem;
+}
+
+.eyebrow,
+.section-label {
+  color: #76807a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.8rem;
+}
+
+h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.5rem, 5vw, 4.9rem);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  margin: 0;
   max-width: 48rem;
-  padding: 3rem;
+}
+
+.welcome-copy {
+  color: #59635e;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 1.8rem 0;
+  max-width: 36rem;
+}
+
+.primary-action,
+.vault-header button {
+  background: #273330;
+  color: #f6f3e9;
+  padding: 0.85rem 1.1rem;
+  width: fit-content;
+}
+
+.primary-action:hover,
+.vault-header button:hover {
+  background: #3f504a;
+}
+
+.welcome-note,
+.error,
+.notice {
+  color: #68716c;
+  font-size: 0.85rem;
+  margin-top: 2rem;
+}
+
+.error {
+  color: #a03d28;
+  font-weight: 600;
+}
+
+.vault-shell {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: clamp(2rem, 6vw, 6rem);
+}
+
+.vault-header {
+  align-items: end;
+  border-bottom: 1px solid #c7c5ba;
+  display: flex;
+  gap: 2rem;
+  justify-content: space-between;
+  padding-bottom: 2rem;
+}
+
+.vault-header h1 {
+  font-size: clamp(2.4rem, 5vw, 4rem);
+}
+
+.vault-header p:not(.eyebrow) {
+  color: #68716c;
+  margin-bottom: 0;
+}
+
+.vault-tree {
+  margin-top: 2.5rem;
+  max-width: 42rem;
+}
+
+.vault-tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1.3rem;
+}
+
+.vault-tree > ul {
+  padding-left: 0;
+}
+
+.vault-tree li {
+  line-height: 2;
+}
+
+.tree-directory {
+  color: #273330;
+  font-weight: 650;
+}
+
+.tree-file {
+  color: #59635e;
+}
+
+.tree-file span {
+  color: #d86d45;
+  display: inline-block;
+  margin-right: 0.45rem;
+  width: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .vault-header {
+    align-items: start;
+    flex-direction: column;
+  }
 }
