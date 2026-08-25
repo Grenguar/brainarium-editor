@@ -1,6 +1,6 @@
 # GitHub Actions plan
 
-Status: planned; do not create workflows until the Electron/TypeScript scaffold defines its package manager, Node version, package scripts, and signing secrets.
+Status: CI and the tag-triggered release workflow are implemented, 2026-08-25. The release job remains intentionally blocked until protected `release` environment secrets are configured.
 
 ## Workflow sequence
 
@@ -11,7 +11,7 @@ Status: planned; do not create workflows until the Electron/TypeScript scaffold 
 | `e2e.yml` | Pull request on macOS and release candidate | packaged-app smoke flows, accessibility/keyboard baseline | Required for release candidates |
 | `codeql.yml` | Pull request, push to `main`, weekly | JavaScript/TypeScript analysis | Required after baseline is clean |
 | `dependency-review.yml` | Pull request | dependency diff policy | Required once dependency management exists |
-| `release.yml` | protected version tag/manual approval | verify, package, sign, notarize, publish release notes | Manual environment approval |
+| `release.yml` | `vX.Y.Z` tag or explicit existing tag | validate, package, sign, notarize, verify, publish DMG/ZIP | `release` environment credentials and a matching immutable tag |
 | `labels.yml` | manual first, then default-branch changes | sync `.github/labels.yml` | Never a merge gate |
 
 ## CI contract
@@ -20,8 +20,8 @@ The `ci.yml` workflow must invoke the exact package scripts documented in `CONTR
 
 ## Repository protections to enable after the first green CI run
 
-Require the `ci` check and a pull-request review for `main`; block force pushes and branch deletion; require conversation resolution; restrict release environment secrets to protected tags/manual approval. Do not require a check before it exists and has a demonstrated green baseline.
+Require the `CI / Validate macOS build` check and a pull-request review for `main`; block force pushes and branch deletion; require conversation resolution; restrict release environment secrets to protected tags/manual approval. This private repository's current GitHub plan does not permit branch protection, so enable it when the plan or repository visibility supports it.
 
 ## Release safety
 
-Release automation must build on macOS, sign/notarize only after all checks pass, generate notes from the changelog, attach checksums, and retain a rollback artifact. Store signing and notarization credentials exclusively as protected GitHub environment secrets; never expose them to pull-request workflows.
+Release automation builds `arm64` and `x64` on macOS, runs the same quality gate as CI, signs and notarizes only after that succeeds, verifies the packaged app, and publishes DMG/ZIP artifacts plus SHA-256 checksums with generated release notes. Store signing and notarization credentials exclusively as protected GitHub environment secrets; never expose them to pull-request workflows. The exact setup and tag procedure is in [RELEASING.md](RELEASING.md).

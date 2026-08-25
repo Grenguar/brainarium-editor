@@ -436,16 +436,31 @@ fn write_graph(root: &Path, graph: &VaultGraph) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    static TEMPORARY_VAULT_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
+
     fn temporary_vault() -> PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("brainarium-indexer-{unique}"));
-        fs::create_dir_all(&root).unwrap();
-        root
+        for _ in 0..128 {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let sequence = TEMPORARY_VAULT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "brainarium-indexer-{}-{unique}-{sequence}",
+                std::process::id()
+            ));
+
+            match fs::create_dir(&root) {
+                Ok(()) => return root,
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(error) => panic!("failed to create temporary vault: {error}"),
+            }
+        }
+
+        panic!("could not allocate a unique temporary vault");
     }
 
     #[test]

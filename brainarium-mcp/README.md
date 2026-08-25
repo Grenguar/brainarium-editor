@@ -11,6 +11,8 @@
 
 The server never renders, reformats, or interprets document contents. `write_file` replaces the raw UTF-8 source atomically and is disabled until explicitly enabled.
 
+It does **not** require Brainarium/Electron to be running. The MCP reads and writes its explicitly configured vault directly and rebuilds the local Markdown graph cache after a successful Markdown write.
+
 ## Safety boundary
 
 - `BRAINARIUM_VAULT` is canonicalized at startup and is the only accessible root.

@@ -38,6 +38,7 @@ Choose any folder, browse its supported text files (Markdown, CSV, plain text, J
 | [TECHNICAL-CONTRACTS.md](TECHNICAL-CONTRACTS.md)               | Normative source-fidelity, vault, agent, and performance contracts                                       |
 | [adr/001-editor-engine-gate.md](adr/001-editor-engine-gate.md) | Editor-engine decision gate                                                                              |
 | [GITHUB-ACTIONS-PLAN.md](GITHUB-ACTIONS-PLAN.md)               | Staged CI, security, release, label-sync, and branch-protection plan                                     |
+| [RELEASING.md](RELEASING.md)                                   | Signed macOS DMG release setup, version tags, and manual update procedure                                |
 
 ## Default MVP decisions
 

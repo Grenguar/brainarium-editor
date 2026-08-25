@@ -7,6 +7,7 @@ All notable Brainarium changes are documented here, following the structure of [
 ### Added
 
 - Planning documentation, quality gates, tag taxonomy, and future GitHub Actions plan.
+- Local macOS DMG packaging and a signed, notarized GitHub Release pipeline for version tags.
 
 ### Changed
 

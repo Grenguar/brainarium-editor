@@ -2,16 +2,39 @@
 
 ## Local development
 
-Install dependencies with `npm install`, then run `npm run dev`. Electron Forge
-starts the sandboxed desktop shell and rebuilds the main, preload, and renderer
-processes as their source changes. Quit the application or press `Ctrl+C` in
-the terminal to stop the loop.
+Prerequisites: macOS, Node 22, Rust stable, and npm. From the repository root:
 
-Use `npm run test:watch` while changing unit-tested code. The full local
-quality gate is `npm run quality`, which runs format, lint, type check, the complete
-TypeScript and Rust test suites, strict Rust Clippy, and the production package.
-Run affected integration or end-to-end tests when they are introduced. `npm run
-dev` and `npm run build` compile the packaged Rust indexer automatically.
+```sh
+npm ci
+npm run dev
+```
+
+Electron Forge starts the sandboxed desktop shell and recompiles the main,
+preload, renderer, and packaged Rust indexer as source changes. Quit the app or
+press `Ctrl+C` in the terminal to stop it. Do not use `npm run ci`: npm treats
+that as its destructive dependency-reset command. The correct clean install
+command is `npm ci`.
+
+Use `npm run test:watch` while changing unit-tested code. `npm run quality`
+runs the formatter check, linter, type check, complete TypeScript and Rust test
+suites, strict Rust Clippy, and production package. `npm run make` creates an
+unsigned local DMG and ZIP under `out/make/`; see [docs/RELEASING.md](docs/RELEASING.md)
+for the signed GitHub-release path.
+
+## Local MCP
+
+The Rust MCP is independent of Electron; it can serve the configured vault even
+when Brainarium is not running. Start it with one explicit vault:
+
+```sh
+cd brainarium-mcp
+BRAINARIUM_VAULT="/absolute/path/to/vault" \
+  BRAINARIUM_MCP_ALLOW_WRITE=true \
+  uv run brainarium-mcp
+```
+
+See [brainarium-mcp/README.md](brainarium-mcp/README.md) for Cargo, Docker,
+Claude Desktop, and per-vault configuration instructions.
 
 ## Required pull-request tags
 
