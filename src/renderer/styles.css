@@ -46,6 +46,14 @@ button:disabled {
   width: 3rem;
 }
 
+.monogram-cursor {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7em;
+  letter-spacing: -0.16em;
+  margin-left: -0.05em;
+  transform: translateY(0.08em);
+}
+
 .brand-lockup,
 .sidebar-app-identity {
   align-items: center;

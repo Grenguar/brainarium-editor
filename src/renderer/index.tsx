@@ -728,7 +728,7 @@ const App = (): React.JSX.Element => {
           <div className="vault-sidebar-heading">
             <div className="sidebar-app-identity">
               <span aria-hidden="true" className="sidebar-monogram">
-                B
+                B<span className="monogram-cursor">_</span>
               </span>
               <div>
                 <p className="sidebar-app-name">{appInfo.name}</p>
@@ -1099,7 +1099,7 @@ const App = (): React.JSX.Element => {
     <main className="welcome-shell">
       <div className="brand-lockup">
         <div className="wordmark" aria-hidden="true">
-          B
+          B<span className="monogram-cursor">_</span>
         </div>
         <div>
           <p className="brand-name">{appInfo.name}</p>
