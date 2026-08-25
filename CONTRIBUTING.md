@@ -1,8 +1,16 @@
 # Contributing to Brainarium
 
-## Before the application scaffold
+## Local development
 
-This repository currently contains specifications only. Do not claim application test or build success until package scripts and source code exist. For documentation changes, check internal links, terminology, tag usage, P0/P1 scope, and the changelog policy.
+Install dependencies with `npm install`, then run `npm run dev`. Electron Forge
+starts the sandboxed desktop shell and rebuilds the main, preload, and renderer
+processes as their source changes. Quit the application or press `Ctrl+C` in
+the terminal to stop the loop.
+
+Use `npm run test:watch` while changing unit-tested code. The full local
+quality gate is `npm run format:check && npm run lint && npm run typecheck &&
+npm test && npm run build`; run affected integration or end-to-end tests when
+they are introduced.
 
 ## Required pull-request tags
 
@@ -12,9 +20,9 @@ Apply exactly one `type:*`, one `area:*`, and one `priority:*` label. Apply `sta
 
 Follow [CHANGELOG.md](CHANGELOG.md). A user-visible change needs an `Unreleased` entry; use `changelog:skip` only for the exceptions defined there.
 
-## Required checks after scaffolding
+## Required checks
 
-The canonical scripts will be added to `package.json`. Every implementation PR must run the same commands locally and in CI:
+Every implementation PR must run the same commands locally and in CI:
 
 1. format check and lint;
 2. type check;

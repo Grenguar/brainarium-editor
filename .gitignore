@@ -15,3 +15,7 @@ graphify-out/
 .env.*
 *.log
 .DS_Store
+.webpack/
+out/
+dist/
+node_modules/
