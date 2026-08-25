@@ -102,8 +102,42 @@ h1 {
 
 .vault-shell {
   box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr);
   min-height: 100vh;
-  padding: clamp(2rem, 6vw, 6rem);
+  padding: 0;
+}
+
+.vault-sidebar {
+  background: #e0ddd2;
+  border-right: 1px solid #c7c5ba;
+  box-sizing: border-box;
+  min-height: 100vh;
+  overflow: auto;
+  padding: 2.25rem 1.75rem;
+}
+
+.vault-sidebar-heading > p:not(.eyebrow) {
+  color: #68716c;
+  font-size: 0.85rem;
+  margin: 0.65rem 0 1.5rem;
+}
+
+.vault-sidebar h1 {
+  font-size: clamp(2rem, 3vw, 3rem);
+}
+
+.vault-sidebar-heading > button {
+  background: #273330;
+  color: #f6f3e9;
+  padding: 0.65rem 0.8rem;
+}
+
+.document-workspace {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: auto;
+  padding: clamp(2rem, 5vw, 5rem);
 }
 
 .vault-header {
@@ -144,8 +178,17 @@ h1 {
 }
 
 .tree-directory {
+  background: transparent;
   color: #273330;
   font-weight: 650;
+  padding: 0;
+  text-align: left;
+}
+
+.tree-directory span {
+  color: #76807a;
+  display: inline-block;
+  width: 1rem;
 }
 
 .tree-file {
@@ -228,8 +271,142 @@ h1 {
   white-space: pre-wrap;
 }
 
+.document-toolbar {
+  align-items: start;
+  border-bottom: 1px solid #c7c5ba;
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.document-toolbar h2,
+.document-empty h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  margin: 0;
+}
+
+.toolbar-actions,
+.view-toggle {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.toolbar-actions > button,
+.view-toggle button {
+  background: #e0ddd2;
+  color: #273330;
+  padding: 0.6rem 0.75rem;
+}
+
+.view-toggle {
+  background: #e0ddd2;
+  border-radius: 0.35rem;
+  padding: 0.2rem;
+}
+
+.view-toggle button.active {
+  background: #273330;
+  color: #f6f3e9;
+}
+
+.document-source,
+.reading-code {
+  background: #f6f3e9;
+  border-left: 3px solid #d86d45;
+  box-sizing: border-box;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 55rem;
+  overflow: auto;
+  padding: 1.5rem;
+  white-space: pre-wrap;
+}
+
+.markdown-reading {
+  color: #2f3936;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.16rem;
+  line-height: 1.7;
+  max-width: 48rem;
+}
+
+.markdown-reading h1,
+.markdown-reading h2,
+.markdown-reading h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  margin: 2.5rem 0 1rem;
+}
+
+.markdown-reading h1 {
+  font-size: 2.8rem;
+}
+.markdown-reading h2 {
+  font-size: 2rem;
+}
+.markdown-reading h3 {
+  font-size: 1.45rem;
+}
+.markdown-reading p {
+  margin: 1rem 0;
+}
+.markdown-reading ul {
+  padding-left: 1.35rem;
+}
+.markdown-reading li {
+  margin: 0.35rem 0;
+}
+.markdown-reading a {
+  color: #a5492f;
+}
+.markdown-reading code {
+  background: #e0ddd2;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82em;
+  padding: 0.1rem 0.25rem;
+}
+.markdown-reading blockquote {
+  border-left: 2px solid #d86d45;
+  color: #59635e;
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+}
+.markdown-reading .reading-code {
+  font-size: 0.8rem;
+  margin: 1.5rem 0;
+}
+
+.document-empty {
+  color: #68716c;
+  margin: 12vh auto;
+  max-width: 36rem;
+}
+
+.document-empty p:last-child {
+  line-height: 1.6;
+}
+
 @media (max-width: 560px) {
-  .vault-header {
+  .vault-shell {
+    display: block;
+  }
+
+  .vault-sidebar {
+    min-height: auto;
+  }
+
+  .document-toolbar,
+  .toolbar-actions {
     align-items: start;
     flex-direction: column;
   }

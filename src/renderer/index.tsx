@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type {
   RecentVault,
@@ -17,6 +17,7 @@ const TreeNode = ({
   node: VaultTreeNode;
   onSelect: (relativePath: string) => void;
 }): React.JSX.Element => {
+  const [isOpen, setIsOpen] = useState(true);
   if (node.kind !== "directory") {
     const icon =
       node.kind === "csv"
@@ -42,8 +43,16 @@ const TreeNode = ({
 
   return (
     <li>
-      <span className="tree-directory">{node.name || "Vault"}</span>
-      {node.children.length > 0 && (
+      <button
+        className="tree-directory"
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+      >
+        <span aria-hidden="true">{isOpen ? "⌄" : "›"}</span>
+        {node.name || "Vault"}
+      </button>
+      {isOpen && node.children.length > 0 && (
         <ul>
           {node.children.map((child) => (
             <TreeNode
@@ -58,6 +67,105 @@ const TreeNode = ({
   );
 };
 
+const renderInline = (text: string): ReactNode[] => {
+  const parts = text.split(
+    /(\[[^\]]+\]\([^\s)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g,
+  );
+  return parts.filter(Boolean).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={index}>{part.slice(1, -1)}</code>;
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    const link = /^\[([^\]]+)\]\(([^\s)]+)\)$/.exec(part);
+    if (link) {
+      const isExternal = /^https?:\/\//.test(link[2]);
+      return isExternal ? (
+        <a key={index} href={link[2]} rel="noreferrer" target="_blank">
+          {link[1]}
+        </a>
+      ) : (
+        <span key={index}>{link[1]}</span>
+      );
+    }
+    return part;
+  });
+};
+
+const MarkdownReading = ({ source }: { source: string }): React.JSX.Element => {
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const blocks: ReactNode[] = [];
+  let cursor = 0;
+  if (lines[0] === "---") {
+    const closing = lines.indexOf("---", 1);
+    if (closing > 0) cursor = closing + 1;
+  }
+  while (cursor < lines.length) {
+    const line = lines[cursor];
+    if (!line.trim()) {
+      cursor += 1;
+      continue;
+    }
+    if (line.startsWith("```")) {
+      const language = line.slice(3).trim();
+      const code: string[] = [];
+      cursor += 1;
+      while (cursor < lines.length && !lines[cursor].startsWith("```"))
+        code.push(lines[cursor++]);
+      cursor += 1;
+      blocks.push(
+        <pre className="reading-code" key={cursor}>
+          <code data-language={language}>{code.join("\n")}</code>
+        </pre>,
+      );
+      continue;
+    }
+    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+    if (heading) {
+      const level = heading[1].length;
+      const Tag = `h${level}` as "h1" | "h2" | "h3";
+      blocks.push(<Tag key={cursor}>{renderInline(heading[2])}</Tag>);
+      cursor += 1;
+      continue;
+    }
+    if (/^[-*+]\s+/.test(line)) {
+      const items: string[] = [];
+      while (cursor < lines.length && /^[-*+]\s+/.test(lines[cursor]))
+        items.push(lines[cursor++].replace(/^[-*+]\s+/, ""));
+      blocks.push(
+        <ul key={cursor}>
+          {items.map((item, index) => (
+            <li key={index}>{renderInline(item)}</li>
+          ))}
+        </ul>,
+      );
+      continue;
+    }
+    if (/^>\s?/.test(line)) {
+      blocks.push(
+        <blockquote key={cursor}>
+          {renderInline(line.replace(/^>\s?/, ""))}
+        </blockquote>,
+      );
+      cursor += 1;
+      continue;
+    }
+    const paragraph: string[] = [];
+    while (
+      cursor < lines.length &&
+      lines[cursor].trim() &&
+      !/^(#{1,3}\s|```|[-*+]\s|>\s?)/.test(lines[cursor])
+    )
+      paragraph.push(lines[cursor++]);
+    blocks.push(<p key={cursor}>{renderInline(paragraph.join(" "))}</p>);
+  }
+  return <article className="markdown-reading">{blocks}</article>;
+};
+
 const App = (): React.JSX.Element => {
   const [snapshot, setSnapshot] = useState<VaultSnapshot>();
   const [document, setDocument] = useState<VaultDocumentContent>();
@@ -65,6 +173,7 @@ const App = (): React.JSX.Element => {
   const [isChoosing, setIsChoosing] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState<"reading" | "source">("reading");
   const [error, setError] = useState<string>();
 
   const refreshRecents = async (): Promise<void> => {
@@ -83,6 +192,7 @@ const App = (): React.JSX.Element => {
       if (!result.cancelled) {
         setSnapshot(result.snapshot);
         setDocument(undefined);
+        setCopied(false);
         await refreshRecents();
       }
     } catch {
@@ -99,6 +209,7 @@ const App = (): React.JSX.Element => {
     try {
       setSnapshot(await window.brainarium.openRecentVault(id));
       setDocument(undefined);
+      setCopied(false);
       await refreshRecents();
     } catch {
       setError("That vault is unavailable. Choose another folder to continue.");
@@ -109,6 +220,7 @@ const App = (): React.JSX.Element => {
     setError(undefined);
     try {
       setDocument(await window.brainarium.readDocument(relativePath));
+      setCopied(false);
     } catch {
       setError(
         "Brainarium could not read that file. It may have changed outside the vault.",
@@ -134,78 +246,116 @@ const App = (): React.JSX.Element => {
   if (snapshot) {
     return (
       <main className="vault-shell">
-        <header className="vault-header">
-          <div>
+        <aside className="vault-sidebar">
+          <div className="vault-sidebar-heading">
             <p className="eyebrow">OPEN VAULT</p>
             <h1>{snapshot.tree.name}</h1>
             <p>{snapshot.documents.length} readable documents</p>
+            <button
+              type="button"
+              onClick={() => void chooseVault()}
+              disabled={isChoosing}
+            >
+              Open another vault
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void chooseVault()}
-            disabled={isChoosing}
-          >
-            Open another vault
-          </button>
-        </header>
-        <section className="vault-tree" aria-label="Vault files">
-          <p className="section-label">FILES</p>
-          <ul>
-            <TreeNode
-              node={snapshot.tree}
-              onSelect={(relativePath) => void readDocument(relativePath)}
-            />
-          </ul>
-        </section>
-        {document && (
-          <section className="document-preview" aria-label="Document preview">
-            <div className="preview-heading">
-              <div>
-                <p className="section-label">
-                  SOURCE PREVIEW · {document.kind.toUpperCase()}
-                </p>
-                <h2>{document.title}</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => void copyDocumentContent()}
-                disabled={isCopying}
-              >
-                {copied
-                  ? "Copied"
-                  : isCopying
-                    ? "Copying…"
-                    : "Copy file content"}
-              </button>
-            </div>
-            <pre>{document.text}</pre>
+          <section className="vault-tree" aria-label="Vault files">
+            <p className="section-label">FILES</p>
+            <ul>
+              <TreeNode
+                node={snapshot.tree}
+                onSelect={(relativePath) => void readDocument(relativePath)}
+              />
+            </ul>
           </section>
-        )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {recentVaults.length > 0 && (
-          <nav className="recent-vaults" aria-label="Recent vaults">
-            <p className="section-label">RECENT VAULTS</p>
-            {recentVaults.map((recent) => (
-              <button
-                key={recent.id}
-                type="button"
-                onClick={() => void openRecentVault(recent.id)}
-              >
-                {recent.name}
-              </button>
-            ))}
-          </nav>
-        )}
-        {snapshot.issues.length > 0 && (
-          <p className="notice">
-            {snapshot.issues.length} unavailable item
-            {snapshot.issues.length === 1 ? "" : "s"} stayed outside this vault.
-          </p>
-        )}
+          {recentVaults.length > 0 && (
+            <nav className="recent-vaults" aria-label="Recent vaults">
+              <p className="section-label">RECENT VAULTS</p>
+              {recentVaults.map((recent) => (
+                <button
+                  key={recent.id}
+                  type="button"
+                  onClick={() => void openRecentVault(recent.id)}
+                >
+                  {recent.name}
+                </button>
+              ))}
+            </nav>
+          )}
+        </aside>
+        <section className="document-workspace" aria-label="Document workspace">
+          {document ? (
+            <>
+              <header className="document-toolbar">
+                <div>
+                  <p className="section-label">{document.kind.toUpperCase()}</p>
+                  <h2>{document.title}</h2>
+                </div>
+                <div className="toolbar-actions">
+                  {document.kind === "markdown" && (
+                    <div
+                      className="view-toggle"
+                      role="group"
+                      aria-label="Document view"
+                    >
+                      <button
+                        className={viewMode === "reading" ? "active" : ""}
+                        type="button"
+                        onClick={() => setViewMode("reading")}
+                      >
+                        Preview
+                      </button>
+                      <button
+                        className={viewMode === "source" ? "active" : ""}
+                        type="button"
+                        onClick={() => setViewMode("source")}
+                      >
+                        Source
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void copyDocumentContent()}
+                    disabled={isCopying}
+                  >
+                    {copied
+                      ? "Copied"
+                      : isCopying
+                        ? "Copying…"
+                        : "Copy file content"}
+                  </button>
+                </div>
+              </header>
+              {document.kind === "markdown" && viewMode === "reading" ? (
+                <MarkdownReading source={document.text} />
+              ) : (
+                <pre className="document-source">{document.text}</pre>
+              )}
+            </>
+          ) : (
+            <div className="document-empty">
+              <p className="eyebrow">BROWSE YOUR VAULT</p>
+              <h2>Choose a file to read.</h2>
+              <p>
+                Markdown opens in a rendered preview; every supported file has
+                an exact source view.
+              </p>
+            </div>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {snapshot.issues.length > 0 && (
+            <p className="notice">
+              {snapshot.issues.length} unavailable item
+              {snapshot.issues.length === 1 ? "" : "s"} stayed outside this
+              vault.
+            </p>
+          )}
+        </section>
       </main>
     );
   }
