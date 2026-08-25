@@ -25,6 +25,10 @@ Saves use same-directory temporary replacement where supported and leave either 
 
 Brainarium may invoke a user-installed `graphify-rs` binary only after an explicit user action for the active vault. The initial adapter runs `build --no-llm --format json,report`, passes the canonical active-vault path, and writes all derived graph output under app data rather than inside the vault. The process receives only `PATH` and `HOME`; no provider credentials are inherited. Graphify's optional LLM extraction, URL ingestion, watch mode, and arbitrary MCP tools are outside this integration. A missing binary fails visibly and never changes vault content.
 
+## Rebuildable link graph and search
+
+Brainarium's vault navigation graph is first-party and deterministic: it reads active-vault Markdown only, resolves explicit `[[wiki-links]]` against indexed Markdown titles and paths, and retains only resolved edges. It neither needs an LLM nor writes graph data into the vault. The initial global search is likewise local, case-insensitive lexical search across supported documents; it returns bounded result metadata, match counts, and source snippets over the typed preload bridge. Semantic/vector search is a later, benchmark-gated capability rather than a dependency of opening, searching, or graphing a vault.
+
 ## Agent safety and protocol
 
 The main process starts `codex app-server` over JSONL stdio, keeps protocol stdout separate from redacted stderr diagnostics, scopes cwd to the active vault, and passes an explicit environment allowlist. It initializes before a thread/turn and normalizes native events. A native patch or tool request is never applied directly: it becomes a bounded `WorkspaceEdit`, is path/version-validated, and is shown as a proposal/diff.

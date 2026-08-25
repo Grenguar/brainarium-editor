@@ -3,11 +3,36 @@ import type { ReactNode } from "react";
 /** A parsed CSV record. Empty cells and trailing empty cells are preserved. */
 export type CsvRow = string[];
 
+const candidates = [",", ";", "\t"] as const;
+
+/** Detects a common delimited-text dialect without splitting quoted values. */
+export const detectDelimiter = (source: string): string => {
+  const line = source.replace(/^\uFEFF/, "").split(/\r\n|\n|\r/, 1)[0] ?? "";
+  let winner = ",";
+  let highest = -1;
+  for (const candidate of candidates) {
+    let count = 0;
+    let quoted = false;
+    for (let index = 0; index < line.length; index += 1) {
+      if (line[index] === '"') quoted = !quoted;
+      else if (!quoted && line[index] === candidate) count += 1;
+    }
+    if (count > highest) {
+      highest = count;
+      winner = candidate;
+    }
+  }
+  return winner;
+};
+
 /**
  * Parses comma-separated UTF-8 text using the RFC 4180 quoting conventions.
  * Quoted values may contain commas, escaped quotes, and line endings.
  */
-export const parseCsv = (source: string): CsvRow[] => {
+export const parseCsv = (
+  source: string,
+  delimiter = detectDelimiter(source),
+): CsvRow[] => {
   const rows: CsvRow[] = [];
   const row: string[] = [];
   let field = "";
@@ -45,7 +70,7 @@ export const parseCsv = (source: string): CsvRow[] => {
 
     if (character === '"' && field.length === 0) {
       isQuoted = true;
-    } else if (character === ",") {
+    } else if (character === delimiter) {
       finishField();
     } else if (character === "\n") {
       finishRow();
@@ -63,6 +88,15 @@ export const parseCsv = (source: string): CsvRow[] => {
 };
 
 const cellValue = (row: CsvRow, column: number): string => row[column] ?? "";
+
+const DataCell = ({ value }: { value: string }): React.JSX.Element =>
+  value ? (
+    <>{value}</>
+  ) : (
+    <span className="csv-empty-cell" aria-label="Empty value">
+      —
+    </span>
+  );
 
 /**
  * A safe, read-only tabular rendering of CSV source. Styling belongs to the
@@ -107,7 +141,9 @@ export const CsvPreview = ({
           {body.map((row, rowIndex) => (
             <tr key={rowIndex}>
               {columns.map((column) => (
-                <td key={column}>{cellValue(row, column)}</td>
+                <td key={column}>
+                  <DataCell value={cellValue(row, column)} />
+                </td>
               ))}
             </tr>
           ))}

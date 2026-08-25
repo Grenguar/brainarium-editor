@@ -127,10 +127,107 @@ h1 {
   font-size: clamp(2rem, 3vw, 3rem);
 }
 
-.vault-sidebar-heading > button {
+.vault-actions {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.vault-action-primary,
+.vault-action-secondary,
+.graphify-callout button {
+  min-height: 2.7rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.vault-action-primary,
+.graphify-callout button {
   background: #273330;
   color: #f6f3e9;
-  padding: 0.65rem 0.8rem;
+}
+
+.vault-action-primary:hover,
+.graphify-callout button:hover {
+  background: #3f504a;
+}
+
+.vault-action-secondary {
+  background: #ece9df;
+  border: 1px solid #c7c5ba;
+  color: #273330;
+}
+
+.vault-action-secondary:hover {
+  background: #d2cfc4;
+}
+
+.graph-status {
+  color: #68716c;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0.8rem 0 0;
+}
+
+.vault-search-controls {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+}
+
+.vault-search-controls > .icon-action {
+  background: #273330;
+  color: #f6f3e9;
+}
+
+.vault-search-form {
+  display: flex;
+  flex: 1;
+  gap: 0.3rem;
+}
+
+.vault-search-form input {
+  background: #f6f3e9;
+  border: 1px solid #c7c5ba;
+  color: #273330;
+  min-width: 0;
+  padding: 0.45rem;
+  width: 100%;
+}
+
+.vault-search-form button {
+  background: #273330;
+  color: #f6f3e9;
+  padding: 0.45rem 0.6rem;
+}
+
+.vault-search-results {
+  border-bottom: 1px solid #c7c5ba;
+  margin-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.vault-search-results button {
+  background: transparent;
+  color: #59635e;
+  display: block;
+  padding: 0.45rem 0;
+  text-align: left;
+  width: 100%;
+}
+
+.vault-search-results button:hover {
+  color: #273330;
+}
+.vault-search-results strong {
+  display: block;
+}
+.vault-search-results span {
+  display: block;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .document-workspace {
@@ -138,6 +235,112 @@ h1 {
   min-width: 0;
   overflow: auto;
   padding: clamp(2rem, 5vw, 5rem);
+}
+
+.graph-toolbar {
+  align-items: center;
+}
+
+.graph-toolbar > button {
+  flex: none;
+}
+
+.vault-graph {
+  margin: 0;
+}
+
+.vault-graph-canvas {
+  background:
+    linear-gradient(rgba(39, 51, 48, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 51, 48, 0.035) 1px, transparent 1px),
+    #f6f3e9;
+  background-size: 2rem 2rem;
+  border: 1px solid #c7c5ba;
+  box-sizing: border-box;
+  height: min(62vh, 43rem);
+  min-height: 30rem;
+  overflow: auto;
+  position: relative;
+  width: 100%;
+}
+
+.vault-graph-lines {
+  height: 100%;
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+}
+
+.vault-graph-lines line {
+  stroke: #a5492f;
+  stroke-opacity: 0.48;
+  stroke-width: 2;
+}
+
+.graph-node {
+  align-items: center;
+  background: transparent;
+  color: #59635e;
+  display: flex;
+  font-size: 0.72rem;
+  gap: 0.35rem;
+  max-width: 7.5rem;
+  overflow: hidden;
+  padding: 0.15rem;
+  position: absolute;
+  text-align: left;
+  text-overflow: ellipsis;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.graph-node > span:first-child {
+  background: #a5ada7;
+  border: 2px solid #f6f3e9;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #7e8982;
+  flex: none;
+  height: 0.55rem;
+  width: 0.55rem;
+}
+
+.graph-node.linked {
+  color: #273330;
+  font-weight: 650;
+}
+
+.graph-node.linked > span:first-child {
+  background: #d86d45;
+  height: 0.72rem;
+  width: 0.72rem;
+}
+
+.graph-node:hover {
+  color: #a5492f;
+}
+
+.vault-graph figcaption {
+  color: #68716c;
+  font-size: 0.84rem;
+  margin-top: 0.8rem;
+}
+
+.graphify-callout {
+  align-items: center;
+  border-top: 1px solid #c7c5ba;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+}
+
+.graphify-callout p:not(.section-label) {
+  color: #68716c;
+  line-height: 1.45;
+  margin: 0;
+  max-width: 44rem;
 }
 
 .vault-header {
@@ -301,6 +504,7 @@ h1 {
 .view-toggle button {
   background: #e0ddd2;
   color: #273330;
+  min-height: 2.7rem;
   padding: 0.6rem 0.75rem;
 }
 
@@ -315,6 +519,22 @@ h1 {
   color: #f6f3e9;
 }
 
+.view-toggle button,
+.icon-action {
+  align-items: center;
+  display: inline-flex;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  justify-content: center;
+  min-width: 2.7rem;
+  padding: 0.5rem !important;
+}
+
+.view-toggle button svg {
+  display: block;
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
 .document-source,
 .reading-code {
   background: #f6f3e9;
@@ -324,7 +544,7 @@ h1 {
   font-size: 0.88rem;
   line-height: 1.65;
   margin: 0;
-  max-width: 55rem;
+  width: 100%;
   overflow: auto;
   padding: 1.5rem;
   white-space: pre-wrap;
@@ -368,9 +588,12 @@ h1 {
 }
 
 .csv-preview-table td {
-  max-width: 28rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 32rem;
+  white-space: normal;
+}
+
+.csv-empty-cell {
+  color: #9b9b91;
 }
 
 .csv-preview-empty {
@@ -389,7 +612,7 @@ h1 {
   min-height: 65vh;
   padding: 1.5rem;
   resize: vertical;
-  width: min(100%, 55rem);
+  width: 100%;
 }
 
 .document-editor:focus {
@@ -402,7 +625,7 @@ h1 {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.16rem;
   line-height: 1.7;
-  max-width: 48rem;
+  max-width: none;
 }
 
 .markdown-reading h1,
@@ -453,6 +676,49 @@ h1 {
   margin: 1.5rem 0;
 }
 
+.wiki-link {
+  background: #e0ddd2;
+  border-bottom: 1px solid #a5492f;
+  color: #a5492f;
+  cursor: pointer;
+  font-family: "Avenir Next", Avenir, sans-serif;
+  font-size: 0.88em;
+  padding: 0.05rem 0.2rem;
+}
+
+.find-bar {
+  align-items: center;
+  background: #f6f3e9;
+  border: 1px solid #c7c5ba;
+  display: flex;
+  gap: 0.4rem;
+  margin: -1.2rem 0 1.75rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.find-bar input {
+  background: transparent;
+  border: 0;
+  color: #273330;
+  flex: 1;
+  font: inherit;
+  min-width: 8rem;
+  outline: 0;
+}
+
+.find-bar button {
+  background: #e0ddd2;
+  color: #273330;
+  min-height: 2rem;
+  min-width: 2rem;
+}
+
+.find-count {
+  color: #68716c;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .document-empty {
   color: #68716c;
   margin: 12vh auto;
@@ -473,8 +739,13 @@ h1 {
   }
 
   .document-toolbar,
-  .toolbar-actions {
+  .toolbar-actions,
+  .graphify-callout {
     align-items: start;
     flex-direction: column;
+  }
+
+  .vault-actions {
+    grid-template-columns: 1fr;
   }
 }

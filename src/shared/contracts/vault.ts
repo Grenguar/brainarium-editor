@@ -48,3 +48,16 @@ export type RecentVault = {
   lastOpenedAt: string;
   name: string;
 };
+
+export type VaultSearchResult = Pick<
+  VaultDocument,
+  "kind" | "relativePath" | "title"
+> & {
+  matches: number;
+  snippet: string;
+};
+
+export type VaultLinkGraph = {
+  edges: Array<{ source: string; target: string }>;
+  nodes: Array<Pick<VaultDocument, "relativePath" | "title">>;
+};

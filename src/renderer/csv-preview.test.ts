@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCsv } from "./csv-preview";
+import { detectDelimiter, parseCsv } from "./csv-preview";
 
 describe("parseCsv", () => {
   it("preserves commas, escaped quotes, and newlines in quoted values", () => {
@@ -18,6 +18,17 @@ describe("parseCsv", () => {
     expect(parseCsv("\uFEFFName,Age,\nAda,42,")).toEqual([
       ["Name", "Age", ""],
       ["Ada", "42", ""],
+    ]);
+  });
+
+  it("detects semicolon-delimited exports while preserving empty fields", () => {
+    const source = "Order;Name;Symbol\n;;AAPL\n42;Marvell;MRVL";
+
+    expect(detectDelimiter(source)).toBe(";");
+    expect(parseCsv(source)).toEqual([
+      ["Order", "Name", "Symbol"],
+      ["", "", "AAPL"],
+      ["42", "Marvell", "MRVL"],
     ]);
   });
 });

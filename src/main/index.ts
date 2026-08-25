@@ -2,6 +2,8 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
 
 import { GraphifyService } from "./graphify/graphify-service";
 import { RecentVaultStore } from "./vault/recent-vaults";
+import { buildVaultLinkGraph } from "./vault/vault-link-graph";
+import { searchVault } from "./vault/vault-search";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 
@@ -96,6 +98,21 @@ ipcMain.handle("graphify:build", async (): Promise<unknown> => {
   if (!activeVault) throw new Error("Open a vault before building its graph.");
   return graphify().build(activeVault);
 });
+
+ipcMain.handle("vault:linkGraph", async (): Promise<unknown> => {
+  if (!activeVault) throw new Error("Open a vault before viewing its graph.");
+  return buildVaultLinkGraph(activeVault);
+});
+
+ipcMain.handle(
+  "vault:search",
+  async (_event, query: unknown): Promise<unknown> => {
+    if (!activeVault || typeof query !== "string") {
+      throw new Error("Open a vault and enter a search query.");
+    }
+    return searchVault(activeVault, query);
+  },
+);
 
 ipcMain.handle(
   "document:read",
