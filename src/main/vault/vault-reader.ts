@@ -35,6 +35,9 @@ export async function readVaultDocument(
     snapshot,
     relativePath,
   );
+  if (document.kind === "image") {
+    throw new Error("Images must be read through the image document reader.");
+  }
 
   const bytes = await readFile(resolvedPath);
   let text: string;

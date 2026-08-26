@@ -14,7 +14,7 @@ Build the first usable release with Electron and TypeScript:
 - Markdown shortcuts, selection toolbar, and insert/context menus for headings, lists, tasks, quotes, code, links, images, tables, and agents.
 - Electron main process for vault access, file watching, indexing, and Codex process supervision.
 - `codex app-server` over JSONL/stdio behind a provider-neutral agent adapter.
-- Read-only CSV table viewing plus exact-source previews for plain text, JSON, XML, and HTML.
+- Read-only CSV table viewing, fit/zoom image previews, and exact-source previews for plain text, JSON, XML, and HTML.
 - A first-party Rust sidecar builds a deterministic Markdown link graph on demand. It stores only a rebuildable, versioned cache at `.brainarium/graph-v1.json` in the explicitly opened vault, refreshes that cache after a Markdown change once graphing is enabled, never changes source documents, and does not need an LLM.
 - A separate Rust stdio MCP server can be explicitly configured for one selected vault. It is independent of the Electron renderer and exposes only bounded, version-checked file operations and the same no-LLM graph cache.
 
@@ -22,7 +22,7 @@ The requested Electron shell remains the application host; the narrow Rust sidec
 
 ## MVP in one sentence
 
-Choose any folder, browse its supported text files (Markdown, CSV, plain text, JSON, XML, and HTML), read or edit Markdown with rich assistance, follow links and backlinks, switch vaults, and ask Codex at the cursor or selection before explicitly applying its proposed text.
+Choose any folder, browse its supported documents (Markdown, CSV, plain text, JSON, XML, HTML, and common images), read or edit Markdown with rich assistance, follow links and backlinks, switch vaults, and ask Codex at the cursor or selection before explicitly applying its proposed text.
 
 ## Document map
 
@@ -38,15 +38,15 @@ Choose any folder, browse its supported text files (Markdown, CSV, plain text, J
 | [TECHNICAL-CONTRACTS.md](TECHNICAL-CONTRACTS.md)               | Normative source-fidelity, vault, agent, and performance contracts                                       |
 | [adr/001-editor-engine-gate.md](adr/001-editor-engine-gate.md) | Editor-engine decision gate                                                                              |
 | [GITHUB-ACTIONS-PLAN.md](GITHUB-ACTIONS-PLAN.md)               | Staged CI, security, release, label-sync, and branch-protection plan                                     |
-| [RELEASING.md](RELEASING.md)                                   | Native macOS, Windows, and Linux packages; signing setup, version tags, and manual updates              |
-| [BUILDING-ELECTRON-APPS.md](BUILDING-ELECTRON-APPS.md)         | Create a separate Electron app, run Brainarium locally, and make native platform packages               |
+| [RELEASING.md](RELEASING.md)                                   | Native macOS, Windows, and Linux packages; signing setup, version tags, and manual updates               |
+| [BUILDING-ELECTRON-APPS.md](BUILDING-ELECTRON-APPS.md)         | Create a separate Electron app, run Brainarium locally, and make native platform packages                |
 
 ## Default MVP decisions
 
 - Vaults are ordinary user-selected folders; Brainarium never imports or relocates them.
 - Reading mode is rendered; Editing mode is assisted Markdown with rich shortcuts and controls.
 - Markdown remains the saved format. Unsupported syntax always has a raw-source escape hatch.
-- CSV is read-only in v1; TXT, JSON, XML, and HTML are exact-source, read-only previews in v1.
+- CSV is read-only in v1; TXT, JSON, XML, and HTML are exact-source, read-only previews; images are inert, read-only fit/zoom previews.
 - Backlinks and outgoing links are P0; a global graph is P1.
 - AI and agent changes are proposals. Files change only after explicit Insert, Replace, or Apply Diff.
 - Codex runs vault-scoped and read-only by default; approval requests fail closed in v1.

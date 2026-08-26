@@ -1,5 +1,5 @@
 export type DocumentKind =
-  "markdown" | "csv" | "text" | "json" | "xml" | "html";
+  "markdown" | "csv" | "text" | "json" | "xml" | "html" | "image";
 
 export type VaultDocument = {
   kind: DocumentKind;
@@ -39,6 +39,7 @@ export type VaultDocumentContent = Pick<
   VaultDocument,
   "kind" | "relativePath" | "title"
 > & {
+  image?: VaultImageContent;
   text: string;
   version: string;
 };
@@ -80,6 +81,11 @@ export type VaultImageContent = {
   bytes: Uint8Array;
   mimeType:
     "image/avif" | "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+};
+
+export type ImageImportResult = {
+  markdown: string;
+  relativePath: string;
 };
 
 export type RecentVault = {

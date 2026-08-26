@@ -1,9 +1,20 @@
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { readVaultImage } from "./vault-image-reader";
+import {
+  importVaultImage,
+  readVaultImage,
+  readVaultImageDocument,
+} from "./vault-image-reader";
 import { scanVault } from "./vault-scanner";
 
 const temporaryRoots: string[] = [];
@@ -44,18 +55,27 @@ describe("readVaultImage", () => {
     ).resolves.toMatchObject({ mimeType: "image/png" });
   });
 
-  it("rejects a traversal path and Brainarium's derived directory", async () => {
+  it("allows a relative path inside the vault but rejects paths outside it and the derived directory", async () => {
     const root = await vaultWithNote();
+    await mkdir(path.join(root, "notes"));
+    await writeFile(path.join(root, "notes", "note.md"), "# Nested note\n");
+    await mkdir(path.join(root, "images"));
     await writeFile(
-      path.join(root, "safe.png"),
+      path.join(root, "images", "safe.png"),
       Buffer.from("89504e470d0a1a0a00000000", "hex"),
     );
     await expect(
       readVaultImage(await scanVault(root), {
-        assetPath: "../safe.png",
-        sourceRelativePath: "note.md",
+        assetPath: "../images/safe.png",
+        sourceRelativePath: "notes/note.md",
       }),
-    ).rejects.toThrow("leaves the current vault path");
+    ).resolves.toMatchObject({ mimeType: "image/png" });
+    await expect(
+      readVaultImage(await scanVault(root), {
+        assetPath: "../../../../safe.png",
+        sourceRelativePath: "notes/note.md",
+      }),
+    ).rejects.toThrow("outside the visible vault");
     await expect(
       readVaultImage(await scanVault(root), {
         assetPath: ".brainarium/graph.png",
@@ -90,5 +110,56 @@ describe("readVaultImage", () => {
         sourceRelativePath: "note.md",
       }),
     ).rejects.toThrow("outside the visible vault");
+  });
+});
+
+describe("readVaultImageDocument", () => {
+  it("reads a verified indexed image without exposing a filesystem path", async () => {
+    const root = await vaultWithNote();
+    await writeFile(
+      path.join(root, "image.png"),
+      Buffer.from("89504e470d0a1a0a00000000", "hex"),
+    );
+
+    await expect(
+      readVaultImageDocument(await scanVault(root), "image.png"),
+    ).resolves.toMatchObject({
+      image: { mimeType: "image/png" },
+      kind: "image",
+      relativePath: "image.png",
+      text: "",
+    });
+  });
+});
+
+describe("importVaultImage", () => {
+  it("moves a verified image into the note's structured image directory and reuses identical bytes", async () => {
+    const root = await temporaryDirectory();
+    await mkdir(path.join(root, "notes", "ai"), { recursive: true });
+    await writeFile(path.join(root, "notes", "ai", "llms.md"), "# LLMs\n");
+    const picked = path.join(await temporaryDirectory(), "chart.png");
+    const bytes = Buffer.from("89504e470d0a1a0a00000000", "hex");
+    await writeFile(picked, bytes);
+    const snapshot = await scanVault(root);
+
+    await expect(
+      importVaultImage(snapshot, "notes/ai/llms.md", picked),
+    ).resolves.toEqual({
+      markdown: "![chart](../../images/notes/ai/chart.png)",
+      relativePath: "images/notes/ai/chart.png",
+    });
+    await expect(
+      readFile(path.join(root, "images", "notes", "ai", "chart.png")),
+    ).resolves.toEqual(bytes);
+    await expect(readFile(picked)).rejects.toMatchObject({ code: "ENOENT" });
+
+    const duplicate = path.join(await temporaryDirectory(), "chart.png");
+    await writeFile(duplicate, bytes);
+    await expect(
+      importVaultImage(snapshot, "notes/ai/llms.md", duplicate),
+    ).resolves.toMatchObject({
+      relativePath: "images/notes/ai/chart.png",
+    });
+    await expect(readFile(duplicate)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

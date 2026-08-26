@@ -32,6 +32,16 @@ function documentKind(fileName: string): DocumentKind | undefined {
   if (extension === ".html" || extension === ".htm") {
     return "html";
   }
+  if (
+    extension === ".avif" ||
+    extension === ".gif" ||
+    extension === ".jpeg" ||
+    extension === ".jpg" ||
+    extension === ".png" ||
+    extension === ".webp"
+  ) {
+    return "image";
+  }
   return undefined;
 }
 

@@ -62,7 +62,7 @@ The current corpus uses nested folders, YAML frontmatter, tasks, relative Markdo
 
 ### Discovery and connections
 
-**IDX-01 Supported content.** Index `.md`, `.markdown`, `.csv`, `.txt`, `.json`, `.xml`, `.html`, and `.htm` case-insensitively. Ignore `.git`, `node_modules`, caches, and hidden files by default.
+**IDX-01 Supported content.** Index `.md`, `.markdown`, `.csv`, `.txt`, `.json`, `.xml`, `.html`, `.htm`, `.avif`, `.gif`, `.jpeg`, `.jpg`, `.png`, and `.webp` case-insensitively. Ignore `.git`, `node_modules`, caches, and hidden files by default. Images are read-only previews and do not expand MCP support.
 
 **IDX-02 Resilient metadata.** Derive relative path, filename, title/first heading, frontmatter, mtime, size, and content hash. Malformed frontmatter must still open as text.
 

@@ -42,11 +42,11 @@ server so an AI client can help without becoming a broad filesystem agent.
 ## What you can do today
 
 - Browse a fixed sidebar tree and open Markdown, CSV, plain text, JSON, XML,
-  and HTML from a selected vault.
+  HTML, and common image files from a selected vault.
 - Search across the vault, jump with **Quick open**, find text without leaving
   Reading mode, and revisit recent vaults.
-- Read sanitized CommonMark/GFM-style Markdown with deterministic wiki-links
-  and safe local images.
+- Read sanitized CommonMark/GFM-style Markdown with deterministic wiki-links,
+  safe local images, and inert fit/zoom image previews.
 - Edit Markdown in assisted or raw-source mode; saves are atomic and version
   checked. Non-Markdown formats remain read-only so their source stays exact.
 - Build and filter a global or local note graph; inspect outgoing links and

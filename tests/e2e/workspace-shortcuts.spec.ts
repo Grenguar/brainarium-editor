@@ -14,7 +14,12 @@ const source = `# Reading source\n\n${Array.from(
   { length: 80 },
   (_, index) =>
     `Paragraph ${index + 1}: needle source text that keeps this document readable.`,
-).join("\n\n")}\n`;
+).join("\n\n")}\n\n![Fixture image](image.png)\n`;
+
+const fixturePng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6owAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 let application: ElectronApplication | undefined;
 let page: Page | undefined;
@@ -58,6 +63,7 @@ test.beforeAll(async () => {
     path.join(os.tmpdir(), "brainarium-e2e-user-data-"),
   );
   await writeFile(path.join(fixtureRoot, "reading.md"), source, "utf8");
+  await writeFile(path.join(fixtureRoot, "image.png"), fixturePng);
   await writeFile(
     path.join(fixtureRoot, "skills-lock.json"),
     JSON.stringify({ name: "dark theme fixture", version: 1 }, null, 2),
@@ -158,4 +164,34 @@ test("keeps search focused, copies plain source, and restores the reading worksp
       }),
     )
     .toEqual({ background: "rgb(40, 49, 46)", color: "rgb(230, 238, 232)" });
+});
+
+test("decodes verified images in Markdown and the standalone image preview", async () => {
+  if (!page) throw new Error("Brainarium did not launch.");
+
+  await page.getByRole("button", { name: "reading.md" }).click();
+  const embedded = page.getByRole("img", { name: "Fixture image" });
+  await expect(embedded).toBeVisible();
+  await expect
+    .poll(() =>
+      embedded.evaluate((image) => ({
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+      })),
+    )
+    .toEqual({ complete: true, naturalWidth: 1 });
+
+  await page.getByRole("button", { name: "image.png" }).click();
+  await expect(
+    page.getByRole("region", { name: "Image preview" }),
+  ).toBeVisible();
+  const standalone = page.getByRole("img", { name: "image" });
+  await expect
+    .poll(() =>
+      standalone.evaluate((image) => ({
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+      })),
+    )
+    .toEqual({ complete: true, naturalWidth: 1 });
 });

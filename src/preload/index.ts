@@ -8,6 +8,7 @@ import type {
   RestoredVaultSession,
   VaultDocumentContent,
   VaultImageContent,
+  ImageImportResult,
   VaultImageRequest,
   VaultLinkGraph,
   VaultSearchResult,
@@ -26,6 +27,8 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("document:read", relativePath),
   readLocalImage: (request: VaultImageRequest): Promise<VaultImageContent> =>
     ipcRenderer.invoke("document:readLocalImage", request),
+  importImage: (sourceRelativePath: string): Promise<ImageImportResult> =>
+    ipcRenderer.invoke("document:importImage", sourceRelativePath),
   openExternalLink: (target: string): Promise<void> =>
     ipcRenderer.invoke("document:openExternal", target),
   saveDocument: (input: DocumentSaveInput): Promise<DocumentSaveResult> =>
@@ -79,6 +82,7 @@ export type BrainariumApi = {
   onVaultGraphChanged(callback: (graph: VaultLinkGraph) => void): () => void;
   openExternalLink(target: string): Promise<void>;
   readLocalImage(request: VaultImageRequest): Promise<VaultImageContent>;
+  importImage(sourceRelativePath: string): Promise<ImageImportResult>;
   searchVault(query: string): Promise<VaultSearchResult[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
   saveDocument(input: DocumentSaveInput): Promise<DocumentSaveResult>;

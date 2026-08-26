@@ -31,6 +31,10 @@ describe("scanVault", () => {
     await writeFile(path.join(root, "notes", "data.json"), "{}");
     await writeFile(path.join(root, "notes", "layout.html"), "<main />");
     await writeFile(path.join(root, "notes", "feed.xml"), "<feed />");
+    await writeFile(
+      path.join(root, "notes", "photo.png"),
+      Buffer.from("89504e470d0a1a0a00000000", "hex"),
+    );
     await mkdir(path.join(root, ".git"));
     await writeFile(path.join(root, ".git", "internal.md"), "# ignored");
     await writeFile(path.join(root, ".hidden.md"), "# ignored");
@@ -48,6 +52,7 @@ describe("scanVault", () => {
       ["notes/data.json", "json", "data"],
       ["notes/feed.xml", "xml", "feed"],
       ["notes/layout.html", "html", "layout"],
+      ["notes/photo.png", "image", "photo"],
       ["notes/plain.txt", "text", "plain"],
       ["z.csv", "csv", "z"],
     ]);

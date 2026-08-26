@@ -15,6 +15,8 @@ All notable Brainarium changes are documented here, following the structure of [
 - CommonMark/GFM Reading mode with safe raw-HTML sanitization, frontmatter properties, reliable Markdown/wiki-links, and verified local images.
 - Conflict-safe Markdown editing with external-change comparison, deliberate reload/overwrite choices, and CodeMirror-assisted source editing.
 - Safe MCP folder creation, nested file creation, and read-only source-derived graph and connection queries.
+- A source-safe Markdown Insert menu and slash palette for supported block types.
+- Inline note connections, a prose-first reading measure with a wide canvas for tables, code, and images, read-only image documents with fit/zoom controls, and verified image moves into structured vault paths beside the active note's hierarchy.
 
 ### Changed
 

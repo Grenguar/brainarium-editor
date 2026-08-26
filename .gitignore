@@ -6,6 +6,7 @@ out/
 dist/
 release/
 coverage/
+test-results/
 
 # Local and derived tooling state
 .ac-index-*/

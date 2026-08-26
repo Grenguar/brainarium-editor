@@ -17,7 +17,11 @@ import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
 import { VaultSessionStore } from "./vault/vault-session-state";
 import { searchVault } from "./vault/vault-search";
-import { readVaultImage } from "./vault/vault-image-reader";
+import {
+  readVaultImage,
+  readVaultImageDocument,
+  importVaultImage,
+} from "./vault/vault-image-reader";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
@@ -275,7 +279,12 @@ ipcMain.handle(
     if (typeof relativePath !== "string" || !activeVault) {
       throw new Error("No active vault document is available.");
     }
-    return readVaultDocument(activeVault, relativePath);
+    const document = activeVault.documents.find(
+      (candidate) => candidate.relativePath === relativePath,
+    );
+    return document?.kind === "image"
+      ? readVaultImageDocument(activeVault, relativePath)
+      : readVaultDocument(activeVault, relativePath);
   },
 );
 
@@ -286,6 +295,33 @@ ipcMain.handle(
       throw new Error("No valid local image request is available.");
     }
     return readVaultImage(activeVault, request);
+  },
+);
+
+ipcMain.handle(
+  "document:importImage",
+  async (_event, sourceRelativePath: unknown): Promise<unknown> => {
+    if (!activeVault || typeof sourceRelativePath !== "string") {
+      throw new Error("Open a Markdown note before moving an image.");
+    }
+    const result = await dialog.showOpenDialog({
+      filters: [
+        {
+          extensions: ["avif", "gif", "jpeg", "jpg", "png", "webp"],
+          name: "Images",
+        },
+      ],
+      properties: ["openFile"],
+      title: "Move image into this vault",
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      throw new Error("Image selection was cancelled.");
+    }
+    return importVaultImage(
+      activeVault,
+      sourceRelativePath,
+      result.filePaths[0],
+    );
   },
 );
 

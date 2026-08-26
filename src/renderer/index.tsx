@@ -50,13 +50,15 @@ const TreeNode = ({
   const [isOpen, setIsOpen] = useState(node.relativePath === "");
   if (node.kind !== "directory") {
     const icon =
-      node.kind === "csv"
-        ? "▦"
-        : node.kind === "json"
-          ? "{}"
-          : node.kind === "xml" || node.kind === "html"
-            ? "<>"
-            : "⌁";
+      node.kind === "image"
+        ? "▧"
+        : node.kind === "csv"
+          ? "▦"
+          : node.kind === "json"
+            ? "{}"
+            : node.kind === "xml" || node.kind === "html"
+              ? "<>"
+              : "⌁";
     return (
       <li>
         <button
@@ -296,6 +298,120 @@ const documentLabel = (
   snapshot?.documents.find(
     (candidate) => candidate.relativePath === relativePath,
   )?.title ?? relativePath;
+
+const InlineConnections = ({
+  backlinks,
+  onOpenDocument,
+  outgoingLinks,
+  snapshot,
+}: {
+  backlinks: VaultLinkGraph["edges"];
+  onOpenDocument: (relativePath: string) => void;
+  outgoingLinks: VaultLinkGraph["edges"];
+  snapshot: VaultSnapshot;
+}): React.JSX.Element => {
+  if (outgoingLinks.length === 0 && backlinks.length === 0) return <></>;
+  return (
+    <section className="inline-connections" aria-label="Note connections">
+      <p className="section-label">CONNECTIONS</p>
+      <div className="inline-connections-columns">
+        <div>
+          <h3>Linked from this note</h3>
+          <ul>
+            {outgoingLinks.map((edge) => (
+              <li key={`${edge.source}-${edge.target}`}>
+                <button
+                  type="button"
+                  onClick={() => onOpenDocument(edge.target)}
+                >
+                  {documentLabel(edge.target, snapshot)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3>Backlinks</h3>
+          <ul>
+            {backlinks.map((edge) => (
+              <li key={`${edge.source}-${edge.target}`}>
+                <button
+                  type="button"
+                  onClick={() => onOpenDocument(edge.source)}
+                >
+                  {documentLabel(edge.source, snapshot)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ImageDocumentPreview = ({
+  document,
+}: {
+  document: VaultDocumentContent;
+}): React.JSX.Element => {
+  const [zoom, setZoom] = useState(100);
+  const image = document.image;
+  const imageUrl = useRef<string | undefined>(undefined);
+  const [url, setUrl] = useState<string>();
+
+  useEffect(() => {
+    setZoom(100);
+    if (!image) return;
+    const exactBytes = new Uint8Array(image.bytes.byteLength);
+    exactBytes.set(image.bytes);
+    const nextUrl = URL.createObjectURL(
+      new Blob([exactBytes.buffer], { type: image.mimeType }),
+    );
+    imageUrl.current = nextUrl;
+    setUrl(nextUrl);
+    return () => {
+      if (imageUrl.current) URL.revokeObjectURL(imageUrl.current);
+      imageUrl.current = undefined;
+    };
+  }, [document.relativePath, document.version, image]);
+
+  if (!image || !url) return <p role="status">Loading image…</p>;
+  return (
+    <section className="image-document-preview" aria-label="Image preview">
+      <div
+        className="image-preview-controls"
+        role="group"
+        aria-label="Image zoom"
+      >
+        <button
+          type="button"
+          onClick={() => setZoom((current) => Math.max(25, current - 25))}
+        >
+          −
+        </button>
+        <button type="button" onClick={() => setZoom(100)}>
+          Fit
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((current) => Math.min(300, current + 25))}
+        >
+          +
+        </button>
+        <output>{zoom}%</output>
+      </div>
+      <div className="image-preview-frame">
+        <img
+          alt={document.title}
+          className={zoom === 100 ? "" : "is-zoomed"}
+          src={url}
+          style={zoom === 100 ? undefined : { width: `${zoom}%` }}
+        />
+      </div>
+    </section>
+  );
+};
 
 type IconName =
   | "back"
@@ -797,6 +913,25 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  const importImage = async (): Promise<void> => {
+    if (document?.kind !== "markdown") return;
+    try {
+      const imported = await window.brainarium.importImage(
+        document.relativePath,
+      );
+      editorRef.current?.insertText(imported.markdown);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "Image selection was cancelled."
+      )
+        return;
+      setError(
+        "Brainarium could not move that image. Check its file type and size.",
+      );
+    }
+  };
+
   useEffect(() => {
     if (!isVaultSearchOpen) return;
     const focusSearch = window.requestAnimationFrame(() => {
@@ -858,10 +993,14 @@ const App = (): React.JSX.Element => {
         event.preventDefault();
         setIsFindOpen(true);
         setFindIndex(-1);
-      } else if (key === "c" && event.shiftKey && document) {
+      } else if (
+        key === "c" &&
+        event.shiftKey &&
+        documentRef.current?.kind !== "image"
+      ) {
         event.preventDefault();
         void copyDocumentContent();
-      } else if (key === "c" && document) {
+      } else if (key === "c" && documentRef.current?.kind !== "image") {
         const target = event.target;
         if (
           target instanceof HTMLInputElement ||
@@ -1696,6 +1835,20 @@ const App = (): React.JSX.Element => {
                     </button>
                   )}
                   {document.kind === "markdown" && viewMode === "editor" && (
+                    <button type="button" onClick={() => void importImage()}>
+                      Move image
+                    </button>
+                  )}
+                  {document.kind === "markdown" && viewMode === "editor" && (
+                    <button
+                      type="button"
+                      onClick={() => editorRef.current?.openInsertMenu()}
+                      title="Insert Markdown block (Cmd+Shift+I)"
+                    >
+                      Insert
+                    </button>
+                  )}
+                  {document.kind === "markdown" && viewMode === "editor" && (
                     <button
                       type="button"
                       onClick={() => void saveDocument()}
@@ -1704,16 +1857,18 @@ const App = (): React.JSX.Element => {
                       {session.status === "saving" ? "Saving…" : "Save"}
                     </button>
                   )}
-                  <button
-                    aria-label={`Copy document content (${platformShortcuts.copyContent})`}
-                    title={`Copy document content (${platformShortcuts.copyContent})`}
-                    type="button"
-                    onClick={() => void copyDocumentContent()}
-                    disabled={isCopying}
-                  >
-                    {copied ? "Copied!" : isCopying ? "Copying…" : "Copy"}
-                    <kbd>{platformShortcuts.copyContent}</kbd>
-                  </button>
+                  {document.kind !== "image" && (
+                    <button
+                      aria-label={`Copy document content (${platformShortcuts.copyContent})`}
+                      title={`Copy document content (${platformShortcuts.copyContent})`}
+                      type="button"
+                      onClick={() => void copyDocumentContent()}
+                      disabled={isCopying}
+                    >
+                      {copied ? "Copied!" : isCopying ? "Copying…" : "Copy"}
+                      <kbd>{platformShortcuts.copyContent}</kbd>
+                    </button>
+                  )}
                 </div>
               </header>
               {document.kind === "markdown" &&
@@ -1796,6 +1951,8 @@ const App = (): React.JSX.Element => {
                   source={editorText}
                   sourceRelativePath={document.relativePath}
                 />
+              ) : document.kind === "image" && document.image ? (
+                <ImageDocumentPreview document={document} />
               ) : document.kind === "markdown" ? (
                 <MarkdownEditor
                   generation={session.generation}
@@ -1809,6 +1966,16 @@ const App = (): React.JSX.Element => {
                 <CsvPreview source={document.text} />
               ) : (
                 <pre className="document-source">{document.text}</pre>
+              )}
+              {document.kind === "markdown" && viewMode === "preview" && (
+                <InlineConnections
+                  backlinks={backlinks}
+                  onOpenDocument={(relativePath) =>
+                    void readDocument(relativePath)
+                  }
+                  outgoingLinks={outgoingLinks}
+                  snapshot={snapshot}
+                />
               )}
             </>
           ) : (
@@ -1855,8 +2022,8 @@ const App = (): React.JSX.Element => {
       <h1>A quiet place for the files you already trust.</h1>
       <p className="welcome-copy">
         {appInfo.description} Open any folder of Markdown, CSV, plain text,
-        JSON, XML, and HTML files. Brainarium keeps the vault where it is and
-        leaves its source in your hands.
+        JSON, XML, HTML, and common image files. Brainarium keeps the vault
+        where it is and leaves its source in your hands.
       </p>
       <button
         className="primary-action"
