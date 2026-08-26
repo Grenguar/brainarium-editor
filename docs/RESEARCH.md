@@ -78,7 +78,7 @@ Prototype both in milestone zero. Default to CodeMirror assisted Markdown becaus
 
 ## Package legitimacy audit
 
-Before the rendered Markdown reader was added, Brainarium checked the published package metadata and the maintainers' public source repositories, then pinned the accepted release line in `package-lock.json` rather than accepting floating ranges.
+Before the rendered Markdown reader was added, Brainarium checked the published package metadata and the maintainers' public source repositories, then pinned the accepted release line in `pnpm-lock.yaml` rather than accepting floating ranges.
 
 | Package | Pinned version | Public source/provenance | Accepted role |
 | --- | --- | --- | --- |

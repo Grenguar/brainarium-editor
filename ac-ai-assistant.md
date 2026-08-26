@@ -76,34 +76,34 @@ Architectural decisions are recorded as ADRs in `docs/adr/`:
 - **MCP launcher:** Python (`uv`), package `brainarium_mcp_launcher` (`brainarium-mcp/pyproject.toml`, `uv.lock`).
 - **Testing:** Vitest `4.1.11` (globals enabled via `tsconfig` `types`).
 - **Lint/format:** ESLint `9.39.1` + `typescript-eslint` `8.68.0`, Prettier `3.9.6`.
-- **Environment:** macOS, Node 22, Rust stable, npm.
+- **Environment:** macOS, Node 24, Rust stable, npm.
 
 ## Build / test / run
 
-Prerequisites: macOS, Node 22, Rust stable, npm.
+Prerequisites: macOS, Node 24, Rust stable, npm.
 
 ```sh
-npm ci            # clean install — NEVER `npm run ci` (that resets deps destructively)
-npm run dev       # electron-forge start; predev builds the Rust indexer in release mode
+pnpm install --frozen-lockfile            # clean, reproducible install
+pnpm run dev       # electron-forge start; predev builds the Rust indexer in release mode
 ```
 
 Key npm scripts (`package.json`):
 
 | Script | What it does |
 |--------|--------------|
-| `npm run dev` / `npm start` | Launch the Electron shell (prebuilds Rust) |
-| `npm run build:rust` | `cargo build --release --manifest-path rust/Cargo.toml` |
-| `npm test` | `vitest run` |
-| `npm run test:watch` | `vitest` (use while iterating) |
-| `npm run lint` | `eslint .` |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run format` / `format:check` | Prettier over configs, `src`, and workflows |
-| `npm run check:rust` | `cargo fmt --check` + `clippy -D warnings` + `cargo test` on `rust/` |
-| `npm run package` / `npm run build` | `electron-forge package` (prebuilds Rust) |
-| `npm run make` | Unsigned local DMG + ZIP under `out/make/` |
-| `npm run quality` | **The mandatory implementation gate** (see below) |
+| `pnpm run dev` / `pnpm start` | Launch the Electron shell (prebuilds Rust) |
+| `pnpm run build:rust` | `cargo build --release --manifest-path rust/Cargo.toml` |
+| `pnpm test` | `vitest run` |
+| `pnpm run test:watch` | `vitest` (use while iterating) |
+| `pnpm run lint` | `eslint .` |
+| `pnpm run typecheck` | `tsc --noEmit` |
+| `pnpm run format` / `format:check` | Prettier over configs, `src`, and workflows |
+| `pnpm run check:rust` | `cargo fmt --check` + `clippy -D warnings` + `cargo test` on `rust/` |
+| `pnpm run package` / `pnpm run build` | `electron-forge package` (prebuilds Rust) |
+| `pnpm run make` | Unsigned local DMG + ZIP under `out/make/` |
+| `pnpm run quality` | **The mandatory implementation gate** (see below) |
 
-`npm run quality` runs: format check → lint → type check → full TypeScript tests → full Rust checks (`check:rust`) → production package/build. Every implementation PR must pass this locally and in CI.
+`pnpm run quality` runs: format check → lint → type check → full TypeScript tests → full Rust checks (`check:rust`) → production package/build. Every implementation PR must pass this locally and in CI.
 
 **Running the MCP** (independent of Electron), from `brainarium-mcp/`:
 
@@ -126,8 +126,8 @@ See `brainarium-mcp/README.md` for Cargo, Docker, and Claude Desktop configurati
 
 ## Coding standards & conventions
 
-- **Formatting:** Prettier is authoritative for JS/TS, JSON configs, and `.github/workflows`. Run `npm run format:check` before pushing.
-- **Linting:** ESLint flat config (`eslint.config.mjs`) with `typescript-eslint`; `npm run lint` must pass clean.
+- **Formatting:** Prettier is authoritative for JS/TS, JSON configs, and `.github/workflows`. Run `pnpm run format:check` before pushing.
+- **Linting:** ESLint flat config (`eslint.config.mjs`) with `typescript-eslint`; `pnpm run lint` must pass clean.
 - **TypeScript:** strict mode, no implicit `any`, consistent-cased filenames enforced.
 - **Rust:** `cargo fmt` clean and `clippy -- -D warnings` (warnings are errors). Applies to both `rust/` and `brainarium-mcp/`.
 - **Tests colocated** with source (`*.test.ts` next to implementation, e.g. `vault-reader.test.ts`).
@@ -143,13 +143,13 @@ See `brainarium-mcp/README.md` for Cargo, Docker, and Claude Desktop configurati
 
 ## Testing approach
 
-- **Unit tests:** Vitest, run via `npm test` (CI) or `npm run test:watch` (local iteration). Vitest globals are wired through `tsconfig.json` `types: ["node", "vitest/globals"]`.
-- **Rust tests:** `cargo test` for both `rust/` and `brainarium-mcp/`, included in `npm run check:rust` / `npm run quality`.
+- **Unit tests:** Vitest, run via `pnpm test` (CI) or `pnpm run test:watch` (local iteration). Vitest globals are wired through `tsconfig.json` `types: ["node", "vitest/globals"]`.
+- **Rust tests:** `cargo test` for both `rust/` and `brainarium-mcp/`, included in `pnpm run check:rust` / `pnpm run quality`.
 - Also run focused and relevant **IPC / filesystem / packaged-app integration tests** for changes that touch those boundaries.
 
 ## Important notes & gotchas
 
-- **`npm ci` ≠ `npm run ci`.** Use `npm ci` for a clean install; `npm run ci` is npm's destructive dependency-reset command. This is called out repeatedly in `AGENTS.md` and `CONTRIBUTING.md`.
+- **Use one package manager.** Run `pnpm install --frozen-lockfile` for a clean install; do not use npm commands or commit an npm lockfile alongside `pnpm-lock.yaml`.
 - **The Rust indexer is a build prerequisite.** `predev`/`prestart`/`package`/`make` all invoke `build:rust` first — a stale or unbuilt binary breaks the app.
 - **`.brainarium/graph-v1.json` is derived cache, not vault content.** Never hand-edit it, and never let it enter vault listings, search, or MCP operations.
 - **`graphify-out/` and `.planning/graphs/` are generated artifacts** (Graphify output — graph reports, `graph.json`, `manifest.json`, AST cache). Rebuild them with Graphify after structural doc changes; never hand-edit.

@@ -5,11 +5,12 @@ This guide covers both running Brainarium and creating a separate Electron app.
 
 ## Run Brainarium from this checkout
 
-Install Node 22 and Rust stable, then run:
+Install Node 24 and Rust stable, then run:
 
 ```sh
-npm ci
-npm run dev
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 Forge starts the Electron main process, sandboxed renderer, and preload bridge.
@@ -19,7 +20,7 @@ Quit the app or press `Ctrl+C` in the terminal to stop it.
 Run the mandatory quality gate before sharing a change:
 
 ```sh
-npm run quality
+pnpm run quality
 ```
 
 ## Package Brainarium for the current platform
@@ -27,7 +28,7 @@ npm run quality
 Build on the operating system you are targeting:
 
 ```sh
-npm run make
+pnpm run make
 ```
 
 The resulting native installers appear below `out/make/`:
@@ -61,7 +62,7 @@ The new app has three deliberate layers:
 
 Keep `contextIsolation: true`, `nodeIntegration: false`, and a sandboxed
 renderer. Validate inputs in the main process even when the UI is trusted.
-For installers, add the Forge makers needed by your platform, run `npm run make`
+For installers, add the Forge makers needed by your platform, run `pnpm run make`
 on that platform, and verify the generated installer on a clean user account.
 
 Brainarium is a useful reference for the minimal boundaries:

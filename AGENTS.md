@@ -52,16 +52,17 @@ examples, and identifiers.
 ## Commands and validation
 
 ```sh
-npm ci
-npm run dev
-npm run quality
-npm run make
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run dev
+pnpm run quality
+pnpm run make
 ```
 
-`npm run quality` is the mandatory implementation gate: format, lint, type
+`pnpm run quality` is the mandatory implementation gate: format, lint, type
 check, full TypeScript/Rust tests, strict Clippy, and production package. Run
 focused and relevant IPC/filesystem/packaged-app integration tests as well.
-Use `npm ci`, never `npm run ci`.
+Use `pnpm install --frozen-lockfile`; do not mix npm and pnpm lockfiles.
 
 For MCP changes, run from `brainarium-mcp`:
 

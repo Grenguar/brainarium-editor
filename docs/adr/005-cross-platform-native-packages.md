@@ -18,7 +18,7 @@ RHEL-family, and openSUSE-style x64 systems. Keep signed/notarized macOS
 Apple-Silicon and Intel packaging as the protected release gate; the publish job
 runs only after every platform package and macOS verification completes.
 
-`npm run make` continues to create artifacts only for the contributor's current
+`pnpm run make` continues to create artifacts only for the contributor's current
 platform. The CI workflow is the authoritative cross-platform packaging test.
 Every release attaches SHA-256 checksums. Windows code signing and Linux
 repository keys are explicitly deferred rather than implied by the macOS Apple

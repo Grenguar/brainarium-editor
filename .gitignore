@@ -1,5 +1,6 @@
 # Dependency and build output (added when the Electron scaffold lands)
 node_modules/
+.pnpm-store/
 rust/target/
 out/
 dist/

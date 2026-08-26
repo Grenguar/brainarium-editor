@@ -7,8 +7,9 @@ the selected folder or introducing a proprietary storage format.
 ## Run the app
 
 ```sh
-npm ci
-npm run dev
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, tests, packaging, and

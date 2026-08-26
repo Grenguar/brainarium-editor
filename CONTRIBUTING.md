@@ -2,26 +2,28 @@
 
 ## Local development
 
-Prerequisites: Node 22, Rust stable, and npm. Build and package an installer on
+Prerequisites: Node 24 (managed by `.nvmrc`), Rust stable, and Corepack/pnpm. Build and package an installer on
 the operating system you target. From the repository root:
 
 ```sh
-npm ci
-npm run dev
+nvm install
+nvm use
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 Electron Forge starts the sandboxed desktop shell and recompiles the main,
 preload, renderer, and packaged Rust indexer as source changes. Quit the app or
-press `Ctrl+C` in the terminal to stop it. Do not use `npm run ci`: npm treats
-that as its destructive dependency-reset command. The correct clean install
-command is `npm ci`.
+press `Ctrl+C` in the terminal to stop it. Use `pnpm install --frozen-lockfile`
+for a reproducible dependency install; do not mix npm and pnpm lockfiles.
 
-Use `npm run test:watch` while changing unit-tested code. `npm run quality`
+Use `pnpm run test:watch` while changing unit-tested code. `pnpm run quality`
 runs the formatter check, linter, type check, complete TypeScript and Rust test
-suites, strict Rust Clippy, and production package. `npm run make` creates the
+suites, strict Rust Clippy, and production package. `pnpm run make` creates the
 native artifacts for the current host under `out/make/`: a macOS DMG/ZIP,
 Windows Setup, Debian/Ubuntu `.deb`, or RPM `.rpm` as applicable. For the next
-local installable build, use `npm run make:local-update`: it increments only
+local installable build, use `pnpm run make:local-update`: it increments only
 the patch version without a Git tag and then runs the native maker. See
 [docs/BUILDING-ELECTRON-APPS.md](docs/BUILDING-ELECTRON-APPS.md) for the
 package flow and [docs/RELEASING.md](docs/RELEASING.md) for protected releases.

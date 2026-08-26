@@ -1,0 +1,17 @@
+allowBuilds:
+  electron-winstaller: true
+  fs-xattr: true
+  macos-alias: true
+blockExoticSubdeps: false
+confirmModulesPurge: false
+engineStrict: true
+minimumReleaseAge: 0
+nodeLinker: hoisted
+saveExact: true
+overrides:
+  extract-zip: 2.0.1
+  image-size: 1.2.1
+  tar: 7.5.22
+  tmp: 0.2.7
+  uuid: 11.1.1
+  webpack-dev-server: 5.2.6

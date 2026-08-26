@@ -22,5 +22,5 @@ The first delivery mechanism is a manual DMG update: replace the installed appli
 
 - The vault remains local and no update service sees its contents.
 - Release tags must exactly match `package.json`; a new version is a new tag, never a moved tag.
-- Local `npm run make` remains intentionally unsigned so contributors can package without Apple credentials.
+- Local `pnpm run make` remains intentionally unsigned so contributors can package without Apple credentials.
 - Automatic updates, delta downloads, update channels, and a private-repository update feed remain an explicit future decision under OPN-08.

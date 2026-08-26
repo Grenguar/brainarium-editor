@@ -50,8 +50,8 @@ Paste the first result into `BRAINARIUM_MACOS_CERTIFICATE_P12` and the second in
 
 ## Cut a release
 
-1. Update `package.json` and `package-lock.json` to the intended semantic version and add the user-visible [CHANGELOG.md](../CHANGELOG.md) entry.
-2. From the release commit, run `npm run quality` and the MCP validation commands in [brainarium-mcp/README.md](../brainarium-mcp/README.md).
+1. Update `package.json` and `pnpm-lock.yaml` to the intended semantic version and add the user-visible [CHANGELOG.md](../CHANGELOG.md) entry.
+2. From the release commit, run `pnpm run quality` and the MCP validation commands in [brainarium-mcp/README.md](../brainarium-mcp/README.md).
 3. Commit and push the release preparation, then create a matching annotated tag:
 
    ```sh
@@ -71,14 +71,14 @@ To rebuild an existing tag after a transient failure, use **Run workflow** with 
 
 ## Local packaging
 
-`npm run make` creates artifacts for the current host OS under `out/make/`:
+`pnpm run make` creates artifacts for the current host OS under `out/make/`:
 macOS creates an unsigned DMG/ZIP, Windows creates Squirrel Setup, and Linux
 creates `.deb`/`.rpm` packages. Build on the OS you intend to test; the tagged
 GitHub Actions workflow is the authoritative cross-platform build. Local macOS
 artifacts are not public distribution artifacts and may be blocked by Gatekeeper.
 
-For a convenient local update, `npm run make:local-update` increments the patch
-version without creating a Git tag, then runs `npm run make`. Quit the installed
+For a convenient local update, `pnpm run make:local-update` increments the patch
+version without creating a Git tag, then runs `pnpm run make`. Quit the installed
 app, open the new DMG, and replace Brainarium in Applications.
 
 For the supported build, test, and MCP startup commands, see

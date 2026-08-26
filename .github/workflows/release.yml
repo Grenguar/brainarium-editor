@@ -37,8 +37,8 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify immutable release input
         env:
@@ -91,13 +91,14 @@ jobs:
             echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
             echo "BRAINARIUM_MACOS_SIGNING_IDENTITY=$BRAINARIUM_MACOS_SIGNING_IDENTITY"
           } >> "$GITHUB_ENV"
-      - run: npm ci
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
       - name: Validate unsigned production build
-        run: npm run quality
+        run: pnpm run quality
       - name: Package, sign, and notarize
         env:
           BRAINARIUM_SIGN_MACOS: "true"
-        run: npm run make -- --arch "${{ matrix.arch }}"
+        run: pnpm run make -- --arch "${{ matrix.arch }}"
       - name: Verify signed app
         run: |
           app_path="$(find out -type d -name Brainarium.app -print -quit)"
@@ -124,8 +125,8 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify immutable release input
         shell: pwsh
@@ -134,11 +135,12 @@ jobs:
         run: |
           git rev-parse "${env:RELEASE_TAG}^{commit}"
           node -e "const packageJson = require('./package.json'); if (process.env.RELEASE_TAG !== 'v' + packageJson.version) { throw new Error('Tag ' + process.env.RELEASE_TAG + ' must match package version v' + packageJson.version); }"
-      - run: npm ci
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
       - name: Validate production build
-        run: npm run quality
+        run: pnpm run quality
       - name: Package Windows Setup
-        run: npm run make -- --arch x64
+        run: pnpm run make -- --arch x64
       - uses: actions/upload-artifact@v4
         with:
           name: brainarium-windows-x64
@@ -159,8 +161,8 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - name: Install native package builders
         run: |
@@ -172,11 +174,12 @@ jobs:
         run: |
           git rev-parse "${RELEASE_TAG}^{commit}" >/dev/null
           node -e "const packageJson = require('./package.json'); if (process.env.RELEASE_TAG !== 'v' + packageJson.version) { throw new Error('Tag ' + process.env.RELEASE_TAG + ' must match package version v' + packageJson.version); }"
-      - run: npm ci
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
       - name: Validate production build
-        run: npm run quality
+        run: pnpm run quality
       - name: Package Debian and RPM artifacts
-        run: npm run make -- --arch x64
+        run: pnpm run make -- --arch x64
       - uses: actions/upload-artifact@v4
         with:
           name: brainarium-linux-x64
