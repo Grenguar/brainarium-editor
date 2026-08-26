@@ -87,6 +87,30 @@ pub struct WriteReceipt {
     pub version: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DirectoryReceipt {
+    pub path: String,
+    pub created: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphConnection {
+    pub path: String,
+    pub title: String,
+    pub kind: brainarium_indexer::LinkKind,
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileConnections {
+    pub path: String,
+    pub title: String,
+    pub outgoing: Vec<GraphConnection>,
+    pub incoming: Vec<GraphConnection>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Vault {
     root: PathBuf,
@@ -197,13 +221,14 @@ impl Vault {
         path: &str,
         content: &str,
         expected_version: Option<&str>,
+        create_parents: bool,
     ) -> Result<WriteReceipt, VaultError> {
         if !self.write_enabled {
             return Err(VaultError::WriteDisabled);
         }
         self.enforce_size(content.len() as u64)?;
 
-        let (destination, created) = self.resolve_writable_file(path)?;
+        let (destination, created) = self.resolve_writable_file(path, create_parents)?;
         let parent = destination.parent().ok_or_else(|| {
             VaultError::InvalidPath("a vault file must have a parent directory".into())
         })?;
@@ -240,6 +265,71 @@ impl Vault {
             created,
             graph_rebuilt,
             version: version_for(content.as_bytes()),
+        })
+    }
+
+    pub fn create_directory(&self, path: &str) -> Result<DirectoryReceipt, VaultError> {
+        if !self.write_enabled {
+            return Err(VaultError::WriteDisabled);
+        }
+        let relative = validate_relative_path(path)?;
+        let created = self.ensure_directory(&relative)?;
+        Ok(DirectoryReceipt {
+            path: relative.to_string_lossy().replace('\\', "/"),
+            created,
+        })
+    }
+
+    pub fn vault_graph(&self) -> Result<brainarium_indexer::VaultGraph, VaultError> {
+        brainarium_indexer::build_vault_graph(&self.root).map_err(VaultError::Io)
+    }
+
+    pub fn file_connections(&self, path: &str) -> Result<FileConnections, VaultError> {
+        let source = self.resolve_existing_file(path)?;
+        if !is_markdown(&source) {
+            return Err(VaultError::UnsupportedFileType(format!(
+                "{path} is not Markdown; connections are available for Markdown files only"
+            )));
+        }
+        let source_path = self.relative_display(&source);
+        let graph = self.vault_graph()?;
+        let nodes: std::collections::BTreeMap<_, _> = graph
+            .nodes
+            .iter()
+            .map(|node| (node.relative_path.as_str(), node.title.as_str()))
+            .collect();
+        let title = nodes.get(source_path.as_str()).ok_or_else(|| {
+            VaultError::NotFound(format!(
+                "{path} is not available in the current vault graph"
+            ))
+        })?;
+
+        let mut outgoing = Vec::new();
+        let mut incoming = Vec::new();
+        for edge in graph.edges {
+            if edge.source == source_path {
+                if let Some(target_title) = nodes.get(edge.target.as_str()) {
+                    outgoing.push(GraphConnection {
+                        path: edge.target,
+                        title: (*target_title).to_owned(),
+                        kind: edge.kind,
+                    });
+                }
+            } else if edge.target == source_path
+                && let Some(source_title) = nodes.get(edge.source.as_str())
+            {
+                incoming.push(GraphConnection {
+                    path: edge.source,
+                    title: (*source_title).to_owned(),
+                    kind: edge.kind,
+                });
+            }
+        }
+        Ok(FileConnections {
+            path: source_path,
+            title: (*title).to_owned(),
+            outgoing,
+            incoming,
         })
     }
 
@@ -314,17 +404,25 @@ impl Vault {
         Ok(canonical)
     }
 
-    fn resolve_writable_file(&self, user_path: &str) -> Result<(PathBuf, bool), VaultError> {
+    fn resolve_writable_file(
+        &self,
+        user_path: &str,
+        create_parents: bool,
+    ) -> Result<(PathBuf, bool), VaultError> {
         let relative = validate_relative_path(user_path)?;
         self.assert_supported_path(&relative)?;
-        self.reject_symlink_components(&relative, true)?;
         let candidate = self.root.join(&relative);
         let parent = candidate.parent().ok_or_else(|| {
             VaultError::InvalidPath("a vault file must have a parent directory".into())
         })?;
+        let parent_relative = relative.parent().unwrap_or_else(|| Path::new(""));
+        if create_parents && !parent_relative.as_os_str().is_empty() {
+            self.ensure_directory(parent_relative)?;
+        }
+        self.reject_symlink_components(&relative, true)?;
         let canonical_parent = fs::canonicalize(parent).map_err(|error| match error.kind() {
             io::ErrorKind::NotFound => VaultError::NotFound(format!(
-                "the parent directory for {user_path} does not exist; create it explicitly first"
+                "the parent directory for {user_path} does not exist; call create_directory or set createParents=true"
             )),
             _ => VaultError::Io(error),
         })?;
@@ -354,6 +452,58 @@ impl Vault {
             Err(error) => return Err(VaultError::Io(error)),
         };
         Ok((destination, created))
+    }
+
+    fn ensure_directory(&self, relative: &Path) -> Result<bool, VaultError> {
+        let mut current = self.root.clone();
+        let mut created = false;
+        for component in relative.components() {
+            let Component::Normal(name) = component else {
+                return Err(VaultError::InvalidPath(
+                    "path must be a clean relative path".into(),
+                ));
+            };
+            current.push(name);
+            match fs::symlink_metadata(&current) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    return Err(VaultError::InvalidPath(
+                        "symlink paths are not available through Brainarium MCP".into(),
+                    ));
+                }
+                Ok(metadata) if metadata.is_dir() => {}
+                Ok(_) => {
+                    return Err(VaultError::NotAFile(format!(
+                        "{} is not a directory",
+                        relative.display()
+                    )));
+                }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    match fs::create_dir(&current) {
+                        Ok(()) => created = true,
+                        Err(create_error)
+                            if create_error.kind() == io::ErrorKind::AlreadyExists =>
+                        {
+                            let metadata = fs::symlink_metadata(&current)?;
+                            if metadata.file_type().is_symlink() {
+                                return Err(VaultError::InvalidPath(
+                                    "symlink paths are not available through Brainarium MCP".into(),
+                                ));
+                            }
+                            if !metadata.is_dir() {
+                                return Err(VaultError::NotAFile(format!(
+                                    "{} is not a directory",
+                                    relative.display()
+                                )));
+                            }
+                        }
+                        Err(create_error) => return Err(VaultError::Io(create_error)),
+                    }
+                }
+                Err(error) => return Err(VaultError::Io(error)),
+            }
+        }
+        self.assert_directory_without_symlink(&current)?;
+        Ok(created)
     }
 
     fn reject_symlink_components(
@@ -540,7 +690,18 @@ fn version_for(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{collections::BTreeSet, fs, thread, time::Duration};
+    use std::{
+        collections::BTreeSet,
+        fs,
+        sync::{
+            Arc, Barrier,
+            atomic::{AtomicUsize, Ordering},
+        },
+        thread,
+        time::Duration,
+    };
+
+    static TEMPORARY_VAULT_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
     struct TestVault {
         path: PathBuf,
@@ -549,12 +710,13 @@ mod tests {
     impl TestVault {
         fn new() -> Self {
             let unique = format!(
-                "brainarium-mcp-test-{}-{}",
+                "brainarium-mcp-test-{}-{}-{}",
                 std::process::id(),
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("clock after epoch")
-                    .as_nanos()
+                    .as_nanos(),
+                TEMPORARY_VAULT_SEQUENCE.fetch_add(1, Ordering::Relaxed),
             );
             let path = std::env::temp_dir().join(unique);
             fs::create_dir_all(&path).expect("create temp vault");
@@ -627,14 +789,14 @@ mod tests {
     }
 
     #[test]
-    fn writes_atomically_without_creating_directories() {
+    fn writes_atomically_and_can_create_parent_directories_explicitly() {
         let fixture = TestVault::new();
         fixture.write("notes/existing.md", "before");
         let vault = fixture.vault(true);
         let existing_version = vault.read_file("notes/existing.md").unwrap().version;
 
         let existing = vault
-            .write_file("notes/existing.md", "after", Some(&existing_version))
+            .write_file("notes/existing.md", "after", Some(&existing_version), false)
             .expect("overwrite exact source");
         assert!(!existing.created);
         assert!(existing.graph_rebuilt);
@@ -645,14 +807,22 @@ mod tests {
         );
 
         let created = vault
-            .write_file("notes/new.txt", "new source", None)
+            .write_file("notes/new.txt", "new source", None, false)
             .expect("create supported file");
         assert!(created.created);
         assert_eq!(created.size_bytes, 10);
         assert!(matches!(
-            vault.write_file("missing/new.md", "not allowed", None),
+            vault.write_file("missing/new.md", "not allowed", None, false),
             Err(VaultError::NotFound(_))
         ));
+        let nested = vault
+            .write_file("missing/deep/new.md", "created", None, true)
+            .expect("create a supported file with its requested parents");
+        assert!(nested.created);
+        assert_eq!(
+            fs::read_to_string(fixture.path.join("missing/deep/new.md")).unwrap(),
+            "created"
+        );
     }
 
     #[test]
@@ -662,7 +832,7 @@ mod tests {
         assert!(matches!(
             fixture
                 .vault(false)
-                .write_file("notes/existing.md", "after", None),
+                .write_file("notes/existing.md", "after", None, false),
             Err(VaultError::WriteDisabled)
         ));
     }
@@ -675,12 +845,12 @@ mod tests {
         let read = vault.read_file("notes/existing.md").expect("read source");
 
         assert!(matches!(
-            vault.write_file("notes/existing.md", "after", None),
+            vault.write_file("notes/existing.md", "after", None, false),
             Err(VaultError::VersionConflict(_))
         ));
         fixture.write("notes/existing.md", "external change");
         assert!(matches!(
-            vault.write_file("notes/existing.md", "after", Some(&read.version)),
+            vault.write_file("notes/existing.md", "after", Some(&read.version), false),
             Err(VaultError::VersionConflict(_))
         ));
     }
@@ -722,5 +892,87 @@ mod tests {
     fn supported_extensions_are_unique() {
         let unique: BTreeSet<_> = SUPPORTED_EXTENSIONS.into_iter().collect();
         assert_eq!(unique.len(), SUPPORTED_EXTENSIONS.len());
+    }
+
+    #[test]
+    fn creates_directories_without_following_symlinks() {
+        let fixture = TestVault::new();
+        let vault = fixture.vault(true);
+
+        let first = vault
+            .create_directory("notes/projects")
+            .expect("create requested directories");
+        assert!(first.created);
+        assert_eq!(first.path, "notes/projects");
+        assert!(fixture.path.join("notes/projects").is_dir());
+        assert!(
+            !vault
+                .create_directory("notes/projects")
+                .expect("idempotent directory creation")
+                .created
+        );
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            symlink(
+                fixture.path.join("notes"),
+                fixture.path.join("linked-notes"),
+            )
+            .expect("make symlink");
+            assert!(matches!(
+                vault.create_directory("linked-notes/private"),
+                Err(VaultError::InvalidPath(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn concurrent_directory_creation_is_idempotent() {
+        let fixture = TestVault::new();
+        let vault = fixture.vault(true);
+        let barrier = Arc::new(Barrier::new(2));
+        let first_vault = vault.clone();
+        let first_barrier = Arc::clone(&barrier);
+        let first = thread::spawn(move || {
+            first_barrier.wait();
+            first_vault.create_directory("clients/air-canada")
+        });
+        barrier.wait();
+        let second = vault.create_directory("clients/air-canada");
+
+        let first = first
+            .join()
+            .expect("directory task completes")
+            .expect("create directory");
+        let second = second.expect("create directory");
+        assert!(first.created || second.created);
+        assert!(fixture.path.join("clients/air-canada").is_dir());
+    }
+
+    #[test]
+    fn returns_source_derived_graph_and_file_connections() {
+        let fixture = TestVault::new();
+        fixture.write("notes/alpha.md", "[[beta]]\n");
+        fixture.write("notes/beta.md", "[Alpha](alpha.md)\n");
+        fixture.write("notes/plain.txt", "not a note");
+        let vault = fixture.vault(false);
+
+        let graph = vault.vault_graph().expect("build source graph");
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.edges.len(), 2);
+        assert!(!fixture.path.join(".brainarium/graph-v1.json").exists());
+
+        let connections = vault
+            .file_connections("notes/alpha.md")
+            .expect("find note connections");
+        assert_eq!(connections.outgoing.len(), 1);
+        assert_eq!(connections.outgoing[0].path, "notes/beta.md");
+        assert_eq!(connections.incoming.len(), 1);
+        assert_eq!(connections.incoming[0].path, "notes/beta.md");
+        assert!(matches!(
+            vault.file_connections("notes/plain.txt"),
+            Err(VaultError::UnsupportedFileType(_))
+        ));
     }
 }

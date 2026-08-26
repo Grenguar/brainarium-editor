@@ -43,6 +43,45 @@ export type VaultDocumentContent = Pick<
   version: string;
 };
 
+/** The only shape the renderer may use when persisting a Markdown draft. */
+export type DocumentSaveInput = {
+  baseVersion: string;
+  relativePath: string;
+  text: string;
+};
+
+/**
+ * Expected save outcomes are values rather than opaque IPC failures so the
+ * renderer can distinguish a recoverable external edit from an operational
+ * problem. The main process remains the sole authority for the disk version.
+ */
+export type DocumentSaveResult =
+  | { document: VaultDocumentContent; status: "saved" }
+  | {
+      disk: VaultDocumentContent;
+      relativePath: string;
+      requestedBaseVersion: string;
+      status: "conflict";
+    }
+  | { relativePath: string; status: "missing" };
+
+/** A narrowly-scoped local image request made by the rendered Markdown view. */
+export type VaultImageRequest = {
+  assetPath: string;
+  sourceRelativePath: string;
+};
+
+/**
+ * Bytes returned only after the main process has verified vault containment,
+ * file size, file type, and content signature. The renderer turns these into
+ * a short-lived blob URL; it never receives a filesystem path.
+ */
+export type VaultImageContent = {
+  bytes: Uint8Array;
+  mimeType:
+    "image/avif" | "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+};
+
 export type RecentVault = {
   id: string;
   lastOpenedAt: string;

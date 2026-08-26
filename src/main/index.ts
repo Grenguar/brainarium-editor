@@ -1,15 +1,29 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  shell,
+} from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 
 import { RustIndexerService } from "./indexer/rust-indexer-service";
+import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
 import { searchVault } from "./vault/vault-search";
+import { readVaultImage } from "./vault/vault-image-reader";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
+import type {
+  DocumentSaveInput,
+  VaultImageRequest,
+} from "../shared/contracts/vault";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -201,6 +215,30 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "document:readLocalImage",
+  async (_event, request: unknown): Promise<unknown> => {
+    if (!activeVault || !isVaultImageRequest(request)) {
+      throw new Error("No valid local image request is available.");
+    }
+    return readVaultImage(activeVault, request);
+  },
+);
+
+ipcMain.handle(
+  "document:openExternal",
+  async (_event, target: unknown): Promise<void> => {
+    if (typeof target !== "string") {
+      throw new Error("A valid external link is required.");
+    }
+    const url = validatedExternalUrl(target);
+    if (!url) {
+      throw new Error("That external link is not allowed.");
+    }
+    await shell.openExternal(url);
+  },
+);
+
+ipcMain.handle(
   "document:copyContent",
   async (_event, relativePath: unknown): Promise<void> => {
     if (typeof relativePath !== "string" || !activeVault) {
@@ -211,7 +249,22 @@ ipcMain.handle(
   },
 );
 
+// Packaged builds take the dock icon from the .app bundle (packagerConfig.icon).
+// `electron-forge start` runs the bare Electron binary, so set it by hand in dev.
+const applyDevDockIcon = () => {
+  if (process.platform !== "darwin" || app.isPackaged || !app.dock) {
+    return;
+  }
+  const image = nativeImage.createFromPath(
+    path.join(app.getAppPath(), "assets", "icon-1024.png"),
+  );
+  if (!image.isEmpty()) {
+    app.dock.setIcon(image);
+  }
+};
+
 app.whenReady().then(() => {
+  applyDevDockIcon();
   app.setAboutPanelOptions({
     applicationName: app.getName(),
     applicationVersion: app.getVersion(),
@@ -243,12 +296,18 @@ app.on("before-quit", () => {
   vaultWatcher?.stop();
 });
 
-function isSaveInput(
-  value: unknown,
-): value is { baseVersion: string; relativePath: string; text: string } {
+function isSaveInput(value: unknown): value is DocumentSaveInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
   return ["baseVersion", "relativePath", "text"].every(
     (key) => typeof input[key] === "string",
+  );
+}
+
+function isVaultImageRequest(value: unknown): value is VaultImageRequest {
+  if (!value || typeof value !== "object") return false;
+  const request = value as Record<string, unknown>;
+  return ["assetPath", "sourceRelativePath"].every(
+    (key) => typeof request[key] === "string",
   );
 }

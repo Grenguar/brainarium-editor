@@ -61,9 +61,11 @@ struct LinkCandidate {
     target: String,
 }
 
-/// Rebuilds the graph strictly from the selected vault, then atomically writes
-/// it to `.brainarium/graph-v1.json` inside that vault.
-pub fn index_vault(selected_root: &Path) -> io::Result<VaultGraph> {
+/// Builds the graph strictly from Markdown source in the selected vault.
+///
+/// This read-only operation is used by consumers, such as the external MCP,
+/// that need graph semantics without reading or modifying the derived cache.
+pub fn build_vault_graph(selected_root: &Path) -> io::Result<VaultGraph> {
     let root = fs::canonicalize(selected_root)?;
     if !root.is_dir() {
         return Err(io::Error::new(
@@ -76,7 +78,14 @@ pub fn index_vault(selected_root: &Path) -> io::Result<VaultGraph> {
     collect_markdown(&root, &root, &mut documents)?;
     documents.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
 
-    let graph = build_graph(documents);
+    Ok(build_graph(documents))
+}
+
+/// Rebuilds the graph strictly from the selected vault, then atomically writes
+/// it to `.brainarium/graph-v1.json` inside that vault.
+pub fn index_vault(selected_root: &Path) -> io::Result<VaultGraph> {
+    let root = fs::canonicalize(selected_root)?;
+    let graph = build_vault_graph(&root)?;
     write_graph(&root, &graph)?;
     Ok(graph)
 }

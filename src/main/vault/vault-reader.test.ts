@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -62,14 +62,17 @@ describe("readVaultDocument", () => {
     const snapshot = await scanVault(root);
     const before = await readVaultDocument(snapshot, "note.md");
 
-    const saved = await saveVaultDocument(snapshot, {
+    const result = await saveVaultDocument(snapshot, {
       baseVersion: before.version,
       relativePath: "note.md",
       text: "# After\n",
     });
 
     await expect(readFile(notePath, "utf8")).resolves.toBe("# After\n");
-    expect(saved.version).not.toBe(before.version);
+    expect(result).toMatchObject({ status: "saved" });
+    if (result.status === "saved") {
+      expect(result.document.version).not.toBe(before.version);
+    }
   });
 
   it("blocks a save when another editor changed the document", async () => {
@@ -86,6 +89,59 @@ describe("readVaultDocument", () => {
         relativePath: "note.md",
         text: "# Mine\n",
       }),
-    ).rejects.toThrow("changed outside Brainarium");
+    ).resolves.toMatchObject({
+      disk: expect.objectContaining({ text: "# External\n" }),
+      requestedBaseVersion: before.version,
+      status: "conflict",
+    });
+  });
+
+  it("returns a recoverable missing outcome and leaves no temporary file", async () => {
+    const root = await temporaryDirectory();
+    const notePath = path.join(root, "note.md");
+    await writeFile(notePath, "# Before\n");
+    const snapshot = await scanVault(root);
+    const before = await readVaultDocument(snapshot, "note.md");
+    await unlink(notePath);
+
+    await expect(
+      saveVaultDocument(snapshot, {
+        baseVersion: before.version,
+        relativePath: "note.md",
+        text: "# Mine\n",
+      }),
+    ).resolves.toEqual({ relativePath: "note.md", status: "missing" });
+    await expect(readFile(notePath, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("keeps a newer external version when it changes before save is committed", async () => {
+    const root = await temporaryDirectory();
+    const notePath = path.join(root, "note.md");
+    await writeFile(notePath, "# Before\n");
+    const snapshot = await scanVault(root);
+    const before = await readVaultDocument(snapshot, "note.md");
+    await writeFile(notePath, "# First external change\n");
+
+    const firstConflict = await saveVaultDocument(snapshot, {
+      baseVersion: before.version,
+      relativePath: "note.md",
+      text: "# Mine\n",
+    });
+    expect(firstConflict.status).toBe("conflict");
+    if (firstConflict.status !== "conflict") return;
+
+    await writeFile(notePath, "# Second external change\n");
+    await expect(
+      saveVaultDocument(snapshot, {
+        baseVersion: firstConflict.disk.version,
+        relativePath: "note.md",
+        text: "# Mine\n",
+      }),
+    ).resolves.toMatchObject({
+      disk: expect.objectContaining({ text: "# Second external change\n" }),
+      status: "conflict",
+    });
   });
 });

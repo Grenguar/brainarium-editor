@@ -11,6 +11,9 @@ All notable Brainarium changes are documented here, following the structure of [
 - Native Windows Setup and Debian/RPM Linux release artifacts with published checksums.
 - Docker-first, per-vault Brainarium MCP configuration examples for Claude Desktop, Claude Code, Codex, and other stdio MCP clients.
 - Brainarium product identity, version, and description in the Electron shell.
+- CommonMark/GFM Reading mode with safe raw-HTML sanitization, frontmatter properties, reliable Markdown/wiki-links, and verified local images.
+- Conflict-safe Markdown editing with external-change comparison, deliberate reload/overwrite choices, and CodeMirror-assisted source editing.
+- Safe MCP folder creation, nested file creation, and read-only source-derived graph and connection queries.
 
 ### Changed
 

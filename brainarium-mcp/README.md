@@ -20,7 +20,8 @@ It does **not** require Brainarium/Electron to be running. The MCP reads and wri
 - File listing follows neither symlinks nor hidden directories.
 - Only the six supported text extensions can be read or written.
 - The maximum source size defaults to 5 MiB and is capped at 64 MiB.
-- `write_file` is disabled unless `BRAINARIUM_MCP_ALLOW_WRITE=true`; it never creates directories and only creates/replaces one supported file in an existing vault directory. Replacing an existing file requires the SHA-256 `version` returned by `read_file`, so a stale Claude/Desktop/Code context fails rather than overwriting newer source. Markdown writes rebuild Brainarium's local `.brainarium/graph-v1.json` cache; the receipt reports whether that rebuild completed.
+- `create_directory` and `write_file` are disabled unless `BRAINARIUM_MCP_ALLOW_WRITE=true`. `create_directory` creates a requested, non-hidden relative folder tree idempotently. `write_file` can create a new supported file in missing parent folders only when its `createParents` argument is `true`; otherwise it explains that the parent is absent. Replacing an existing file still requires the SHA-256 `version` returned by `read_file`, so stale Claude/Desktop/Code context fails rather than overwriting newer source. Markdown writes rebuild Brainarium's local `.brainarium/graph-v1.json` cache; the receipt reports whether that rebuild completed.
+- `vault_graph` and `file_connections` return resolved Markdown graph data built directly from source. They do not read or mutate `.brainarium/graph-v1.json`.
 
 The current tool set is intentionally small:
 
@@ -29,7 +30,10 @@ The current tool set is intentionally small:
 | `vault_status` | Confirm the vault boundary, supported extensions, source limit, and write state. |
 | `list_files` | List visible supported files, optionally under a vault-relative folder. |
 | `read_file` | Read exact UTF-8 source for one supported file. |
-| `write_file` | Atomically create or replace one supported file when write access is enabled. |
+| `create_directory` | Idempotently create a validated non-hidden vault-relative folder tree when write access is enabled. |
+| `write_file` | Atomically create or replace one supported file; `createParents: true` creates missing validated parents. |
+| `vault_graph` | Read the deterministic, source-derived global Markdown graph. |
+| `file_connections` | Read the resolved incoming and outgoing graph links for one Markdown file. |
 
 No delete, rename, shell, network, or arbitrary filesystem tool is included.
 
@@ -132,9 +136,12 @@ set `BRAINARIUM_MCP_ALLOW_WRITE=true`.
 For a Docker MCP entry, change `BRAINARIUM_MCP_ALLOW_WRITE` to `true` **and**
 the bind mount suffix from `:ro` to `:rw`, then restart the client. Keep the
 host path fixed to the exact vault chosen in Brainarium. `write_file` still
-requires the `version` returned by `read_file`; a stale agent context cannot
-overwrite a newer file. A Markdown write rebuilds the vault's derived graph
-cache, and Brainarium's watcher shows that source change when it is open.
+requires the `version` returned by `read_file` when replacing an existing file;
+a stale agent context cannot overwrite newer source. Create a folder with
+`create_directory`, or send `createParents: true` when creating one new nested
+file. A Markdown write rebuilds the vault's derived graph cache, and
+Brainarium's watcher shows that source change when it is open. `vault_graph`
+and `file_connections` remain read-only source-derived queries.
 
 ## Validation
 

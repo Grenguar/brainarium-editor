@@ -26,6 +26,7 @@ struct FilePathParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct WriteFileParams {
     /// A non-hidden relative path inside the configured vault.
     path: String,
@@ -33,6 +34,9 @@ struct WriteFileParams {
     content: String,
     /// Required SHA-256 version from read_file when replacing an existing file.
     expected_version: Option<String>,
+    /// Create every missing, non-hidden parent folder inside the configured vault.
+    #[serde(default)]
+    create_parents: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -84,7 +88,7 @@ impl BrainariumVaultServer {
     }
 
     #[tool(
-        description = "Atomically create or replace one supported text file with the supplied raw UTF-8 source. This only works when BRAINARIUM_MCP_ALLOW_WRITE=true. Replacing a file requires expectedVersion from read_file. Existing parent folders are required; paths never leave the configured vault. Markdown writes rebuild the local graph cache."
+        description = "Atomically create or replace one supported text file with the supplied raw UTF-8 source. This only works when BRAINARIUM_MCP_ALLOW_WRITE=true. Replacing a file requires expectedVersion from read_file. Set createParents=true to create missing non-hidden parent folders; paths never leave the configured vault. Markdown writes rebuild the local graph cache."
     )]
     fn write_file(
         &self,
@@ -92,13 +96,44 @@ impl BrainariumVaultServer {
             path,
             content,
             expected_version,
+            create_parents,
         }): Parameters<WriteFileParams>,
     ) -> Result<String, ErrorData> {
         let receipt = self
             .vault
-            .write_file(&path, &content, expected_version.as_deref())
+            .write_file(&path, &content, expected_version.as_deref(), create_parents)
             .map_err(as_mcp_error)?;
         encode(&receipt)
+    }
+
+    #[tool(
+        description = "Create a non-hidden directory path inside the configured vault. This is idempotent and only works when BRAINARIUM_MCP_ALLOW_WRITE=true. Symlinks, hidden paths, traversal, and paths outside the vault are rejected."
+    )]
+    fn create_directory(
+        &self,
+        Parameters(FilePathParams { path }): Parameters<FilePathParams>,
+    ) -> Result<String, ErrorData> {
+        let receipt = self.vault.create_directory(&path).map_err(as_mcp_error)?;
+        encode(&receipt)
+    }
+
+    #[tool(
+        description = "Return the deterministic Markdown graph derived from the configured vault's source files. This does not read or modify .brainarium/graph-v1.json, and excludes hidden paths and symlinks."
+    )]
+    fn vault_graph(&self) -> Result<String, ErrorData> {
+        let graph = self.vault.vault_graph().map_err(as_mcp_error)?;
+        encode(&graph)
+    }
+
+    #[tool(
+        description = "Return resolved incoming and outgoing Markdown/wiki-link connections for one Markdown file. The result is derived directly from the configured vault's source graph and does not read or modify .brainarium/graph-v1.json."
+    )]
+    fn file_connections(
+        &self,
+        Parameters(FilePathParams { path }): Parameters<FilePathParams>,
+    ) -> Result<String, ErrorData> {
+        let connections = self.vault.file_connections(&path).map_err(as_mcp_error)?;
+        encode(&connections)
     }
 }
 

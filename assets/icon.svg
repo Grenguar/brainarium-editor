@@ -1,0 +1,57 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6D5AF0"/>
+      <stop offset="1" stop-color="#4B2ED6"/>
+    </linearGradient>
+    <linearGradient id="brain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E6E1FF"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#1B0B6B" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- macOS-style rounded tile -->
+  <rect x="96" y="96" width="832" height="832" rx="196" fill="url(#tile)"/>
+  <rect x="96" y="96" width="832" height="832" rx="196" fill="#FFFFFF" opacity="0.05"/>
+
+  <!-- Brain glyph: symmetric lumpy silhouette + central fissure + folds -->
+  <g filter="url(#soft)">
+    <path fill="url(#brain)" d="
+      M512 250
+      c62 -44 150 -40 196 12
+      c58 -8 108 34 108 92
+      c44 20 62 74 40 116
+      c30 40 20 100 -24 124
+      c-4 54 -56 92 -110 80
+      c-40 40 -114 40 -158 4
+      c-8 6 -18 10 -30 10
+      c-12 0 -22 -4 -30 -10
+      c-44 36 -118 36 -158 -4
+      c-54 12 -106 -26 -110 -80
+      c-44 -24 -54 -84 -24 -124
+      c-22 -42 -4 -96 40 -116
+      c0 -58 50 -100 108 -92
+      c46 -52 134 -56 196 -12 z"/>
+  </g>
+
+  <!-- Central fissure -->
+  <path fill="none" stroke="#B9AEF5" stroke-width="20" stroke-linecap="round"
+        d="M512 286 v462"/>
+
+  <!-- Left-hemisphere folds -->
+  <g fill="none" stroke="#B9AEF5" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M470 330 c-70 6 -96 66 -58 108 c-64 14 -70 86 -14 112"/>
+    <path d="M452 470 c-58 4 -78 54 -40 86"/>
+    <path d="M470 600 c-64 8 -86 62 -40 100"/>
+  </g>
+
+  <!-- Right-hemisphere folds -->
+  <g fill="none" stroke="#B9AEF5" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M554 330 c70 6 96 66 58 108 c64 14 70 86 14 112"/>
+    <path d="M572 470 c58 4 78 54 40 86"/>
+    <path d="M554 600 c64 8 86 62 40 100"/>
+  </g>
+</svg>

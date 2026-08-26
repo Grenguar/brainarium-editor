@@ -76,6 +76,21 @@ Brainarium fit: fastest route to Notion-like rich blocks and menus, but a struct
 
 Prototype both in milestone zero. Default to CodeMirror assisted Markdown because source fidelity is P0. Use Tiptap only if representative vault fixtures round-trip safely or unsupported syntax has an opaque/raw escape hatch.
 
+## Package legitimacy audit
+
+Before the rendered Markdown reader was added, Brainarium checked the published package metadata and the maintainers' public source repositories, then pinned the accepted release line in `package-lock.json` rather than accepting floating ranges.
+
+| Package | Pinned version | Public source/provenance | Accepted role |
+| --- | --- | --- | --- |
+| [`react-markdown`](https://github.com/remarkjs/react-markdown) | 10.1.0 | remark collective React renderer | CommonMark AST-to-React pipeline without `dangerouslySetInnerHTML` |
+| [`remark-gfm`](https://github.com/remarkjs/remark-gfm) | 4.0.1 | remark collective | GFM tables, task lists, strikethrough, autolinks, and footnotes |
+| [`remark-frontmatter`](https://github.com/remarkjs/remark-frontmatter) | 5.0.0 | remark collective | Recognize frontmatter while Brainarium preserves its exact source |
+| [`rehype-raw`](https://github.com/rehypejs/rehype-raw) | 7.0.0 | rehype collective | Parse raw HTML before sanitization, never directly into the DOM |
+| [`rehype-sanitize`](https://github.com/rehypejs/rehype-sanitize) | 6.0.0 | rehype collective | Apply Brainarium's narrow semantic allowlist after raw HTML parsing |
+| [`github-slugger`](https://github.com/Flet/github-slugger) | 2.0.0 | github-slugger maintainer | Stable GitHub-style heading IDs for vault fragments |
+
+The Electron Webpack build is the compatibility gate because these rendering packages are ESM. Their use remains bounded by the renderer's strict sanitizer, a sandboxed preload bridge, and source-preserving Reading/Editing separation.
+
 ## Hermes Agent and extensibility
 
 ### Findings

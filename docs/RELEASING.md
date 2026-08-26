@@ -8,12 +8,12 @@ A Git tag matching the package version (for example, `v0.1.0`) triggers
 [release.yml](../.github/workflows/release.yml). It builds and validates native
 artifacts on their target OS, then attaches the following to the GitHub Release:
 
-| Platform | Architectures | Artifacts | Production trust state |
-| --- | --- | --- | --- |
-| macOS | Apple Silicon and Intel | signed/notarized DMG and ZIP | Developer ID + Apple notarization |
-| Windows | x64 | Squirrel Setup `.exe` and `.nupkg` | unsigned until Windows code signing is configured |
-| Debian/Ubuntu | x64 | `.deb` | SHA-256 checksum until repository signing is configured |
-| Fedora/RHEL/openSUSE-style | x64 | `.rpm` | SHA-256 checksum until repository signing is configured |
+| Platform                   | Architectures           | Artifacts                          | Production trust state                                  |
+| -------------------------- | ----------------------- | ---------------------------------- | ------------------------------------------------------- |
+| macOS                      | Apple Silicon and Intel | signed/notarized DMG and ZIP       | Developer ID + Apple notarization                       |
+| Windows                    | x64                     | Squirrel Setup `.exe` and `.nupkg` | unsigned until Windows code signing is configured       |
+| Debian/Ubuntu              | x64                     | `.deb`                             | SHA-256 checksum until repository signing is configured |
+| Fedora/RHEL/openSUSE-style | x64                     | `.rpm`                             | SHA-256 checksum until repository signing is configured |
 
 The release is published only after all target jobs succeed. The macOS job is
 the protected signing/notarization gate: without its Apple credentials the
@@ -28,14 +28,14 @@ not enabled until the repository's distribution/privacy policy is decided.
 
 Create a `release` GitHub Actions environment and give only its workflows access to these encrypted secrets:
 
-| Secret | Value |
-| --- | --- |
-| `BRAINARIUM_MACOS_CERTIFICATE_P12` | Base64-encoded Developer ID Application `.p12` certificate. |
-| `BRAINARIUM_MACOS_CERTIFICATE_PASSWORD` | Password used when exporting that `.p12`. |
-| `BRAINARIUM_MACOS_SIGNING_IDENTITY` | Exact Developer ID Application identity shown by `security find-identity -p codesigning -v`. |
-| `APPLE_API_KEY_P8_BASE64` | Base64-encoded App Store Connect API key `.p8`. |
-| `APPLE_API_KEY_ID` | The API key identifier. |
-| `APPLE_API_ISSUER` | The App Store Connect API issuer UUID. |
+| Secret                                  | Value                                                                                        |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `BRAINARIUM_MACOS_CERTIFICATE_P12`      | Base64-encoded Developer ID Application `.p12` certificate.                                  |
+| `BRAINARIUM_MACOS_CERTIFICATE_PASSWORD` | Password used when exporting that `.p12`.                                                    |
+| `BRAINARIUM_MACOS_SIGNING_IDENTITY`     | Exact Developer ID Application identity shown by `security find-identity -p codesigning -v`. |
+| `APPLE_API_KEY_P8_BASE64`               | Base64-encoded App Store Connect API key `.p8`.                                              |
+| `APPLE_API_KEY_ID`                      | The API key identifier.                                                                      |
+| `APPLE_API_ISSUER`                      | The App Store Connect API issuer UUID.                                                       |
 
 The workflow creates an ephemeral keychain on each runner; do not commit a certificate, `.p8` file, password, or local `.env` to the repository. Apple Developer Program membership, a Developer ID Application certificate, and notarization credentials are prerequisites. A tagged release fails before packaging if any secret is absent, rather than publishing an unsigned DMG.
 
@@ -76,6 +76,10 @@ macOS creates an unsigned DMG/ZIP, Windows creates Squirrel Setup, and Linux
 creates `.deb`/`.rpm` packages. Build on the OS you intend to test; the tagged
 GitHub Actions workflow is the authoritative cross-platform build. Local macOS
 artifacts are not public distribution artifacts and may be blocked by Gatekeeper.
+
+For a convenient local update, `npm run make:local-update` increments the patch
+version without creating a Git tag, then runs `npm run make`. Quit the installed
+app, open the new DMG, and replace Brainarium in Applications.
 
 For the supported build, test, and MCP startup commands, see
 [CONTRIBUTING.md](../CONTRIBUTING.md) and

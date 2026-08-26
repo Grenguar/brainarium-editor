@@ -2,8 +2,12 @@ import { contextBridge, ipcRenderer } from "electron";
 
 import type {
   BrainariumAppInfo,
+  DocumentSaveInput,
+  DocumentSaveResult,
   RecentVault,
   VaultDocumentContent,
+  VaultImageContent,
+  VaultImageRequest,
   VaultLinkGraph,
   VaultSearchResult,
   VaultSnapshot,
@@ -18,11 +22,11 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:choose"),
   readDocument: (relativePath: string): Promise<VaultDocumentContent> =>
     ipcRenderer.invoke("document:read", relativePath),
-  saveDocument: (input: {
-    baseVersion: string;
-    relativePath: string;
-    text: string;
-  }): Promise<VaultDocumentContent> =>
+  readLocalImage: (request: VaultImageRequest): Promise<VaultImageContent> =>
+    ipcRenderer.invoke("document:readLocalImage", request),
+  openExternalLink: (target: string): Promise<void> =>
+    ipcRenderer.invoke("document:openExternal", target),
+  saveDocument: (input: DocumentSaveInput): Promise<DocumentSaveResult> =>
     ipcRenderer.invoke("document:save", input),
   buildVaultLinkGraph: (): Promise<VaultLinkGraph> =>
     ipcRenderer.invoke("vault:linkGraph"),
@@ -65,11 +69,9 @@ export type BrainariumApi = {
   openRecentVault(id: string): Promise<VaultSnapshot>;
   onVaultChanged(callback: (snapshot: VaultSnapshot) => void): () => void;
   onVaultGraphChanged(callback: (graph: VaultLinkGraph) => void): () => void;
+  openExternalLink(target: string): Promise<void>;
+  readLocalImage(request: VaultImageRequest): Promise<VaultImageContent>;
   searchVault(query: string): Promise<VaultSearchResult[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
-  saveDocument(input: {
-    baseVersion: string;
-    relativePath: string;
-    text: string;
-  }): Promise<VaultDocumentContent>;
+  saveDocument(input: DocumentSaveInput): Promise<DocumentSaveResult>;
 };

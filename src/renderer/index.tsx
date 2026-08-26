@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Graph from "graphology";
 import Sigma from "sigma";
@@ -15,13 +15,26 @@ import type {
 } from "../shared/contracts/vault";
 
 import { CsvPreview } from "./csv-preview";
+import { DocumentConflictPanel } from "./document-conflict-panel";
+import {
+  documentSessionReducer,
+  emptyDocumentSession,
+} from "./document-session";
+import {
+  MarkdownEditor,
+  type MarkdownEditorHandle,
+  type MarkdownEditorMode,
+} from "./editor/markdown-editor";
+import { MarkdownReading } from "./markdown/markdown-reading";
 
 import "./styles.css";
 
 const TreeNode = ({
+  activePath,
   node,
   onSelect,
 }: {
+  activePath?: string;
   node: VaultTreeNode;
   onSelect: (relativePath: string) => void;
 }): React.JSX.Element => {
@@ -39,6 +52,7 @@ const TreeNode = ({
       <li>
         <button
           className="tree-file"
+          aria-current={activePath === node.relativePath ? "page" : undefined}
           type="button"
           onClick={() => onSelect(node.relativePath)}
         >
@@ -65,6 +79,7 @@ const TreeNode = ({
           {node.children.map((child) => (
             <TreeNode
               key={child.relativePath}
+              activePath={activePath}
               node={child}
               onSelect={onSelect}
             />
@@ -73,179 +88,6 @@ const TreeNode = ({
       )}
     </li>
   );
-};
-
-const renderInline = (
-  text: string,
-  onWikiLink?: (target: string) => void,
-): ReactNode[] => {
-  const parts = text.split(
-    /(\[\[[^\]]+\]\]|\[[^\]]+\]\([^\s)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|_[^_]+_)/g,
-  );
-  return parts.filter(Boolean).map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={index}>{part.slice(1, -1)}</code>;
-    }
-    if (
-      (part.startsWith("*") && part.endsWith("*")) ||
-      (part.startsWith("_") && part.endsWith("_"))
-    ) {
-      return <em key={index}>{part.slice(1, -1)}</em>;
-    }
-    if (part.startsWith("[[") && part.endsWith("]]")) {
-      const [target, alias] = part.slice(2, -2).split("|");
-      const label = alias || target;
-      return (
-        <button
-          className="wiki-link"
-          key={index}
-          type="button"
-          onClick={() => onWikiLink?.(target.split("#")[0].trim())}
-        >
-          {label}
-        </button>
-      );
-    }
-    const link = /^\[([^\]]+)\]\(([^\s)]+)\)$/.exec(part);
-    if (link) {
-      const isExternal = /^https?:\/\//.test(link[2]);
-      return isExternal ? (
-        <a key={index} href={link[2]} rel="noreferrer" target="_blank">
-          {link[1]}
-        </a>
-      ) : (
-        <span key={index}>{link[1]}</span>
-      );
-    }
-    return part;
-  });
-};
-
-const MarkdownReading = ({
-  source,
-  onWikiLink,
-}: {
-  onWikiLink: (target: string) => void;
-  source: string;
-}): React.JSX.Element => {
-  const lines = source.replace(/\r\n/g, "\n").split("\n");
-  const blocks: ReactNode[] = [];
-  let cursor = 0;
-  if (lines[0] === "---") {
-    const closing = lines.indexOf("---", 1);
-    if (closing > 0) cursor = closing + 1;
-  }
-  while (cursor < lines.length) {
-    const line = lines[cursor];
-    if (!line.trim()) {
-      cursor += 1;
-      continue;
-    }
-    if (line.startsWith("```")) {
-      const language = line.slice(3).trim();
-      const code: string[] = [];
-      cursor += 1;
-      while (cursor < lines.length && !lines[cursor].startsWith("```"))
-        code.push(lines[cursor++]);
-      cursor += 1;
-      blocks.push(
-        <pre className="reading-code" key={cursor}>
-          <code data-language={language}>{code.join("\n")}</code>
-        </pre>,
-      );
-      continue;
-    }
-    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
-    if (heading) {
-      const level = heading[1].length;
-      const Tag = `h${level}` as "h1" | "h2" | "h3";
-      blocks.push(
-        <Tag key={cursor}>{renderInline(heading[2], onWikiLink)}</Tag>,
-      );
-      cursor += 1;
-      continue;
-    }
-    if (/^[-*+]\s+/.test(line)) {
-      const items: string[] = [];
-      while (cursor < lines.length && /^[-*+]\s+/.test(lines[cursor]))
-        items.push(lines[cursor++].replace(/^[-*+]\s+/, ""));
-      blocks.push(
-        <ul key={cursor}>
-          {items.map((item, index) => (
-            <li key={index}>{renderInline(item, onWikiLink)}</li>
-          ))}
-        </ul>,
-      );
-      continue;
-    }
-    if (/^>\s?/.test(line)) {
-      blocks.push(
-        <blockquote key={cursor}>
-          {renderInline(line.replace(/^>\s?/, ""), onWikiLink)}
-        </blockquote>,
-      );
-      cursor += 1;
-      continue;
-    }
-    if (
-      line.includes("|") &&
-      cursor + 1 < lines.length &&
-      /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(
-        lines[cursor + 1],
-      )
-    ) {
-      const tableLines = [line];
-      cursor += 2;
-      while (cursor < lines.length && lines[cursor].includes("|"))
-        tableLines.push(lines[cursor++]);
-      const cells = (tableLine: string) =>
-        tableLine
-          .trim()
-          .replace(/^\||\|$/g, "")
-          .split("|")
-          .map((cell) => cell.trim());
-      const [header, ...rows] = tableLines.map(cells);
-      blocks.push(
-        <div className="reading-table-wrap" key={cursor}>
-          <table>
-            <thead>
-              <tr>
-                {header.map((cell, index) => (
-                  <th key={index}>{renderInline(cell, onWikiLink)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {header.map((_cell, cellIndex) => (
-                    <td key={cellIndex}>
-                      {renderInline(row[cellIndex] ?? "", onWikiLink)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>,
-      );
-      continue;
-    }
-    const paragraph: string[] = [];
-    while (
-      cursor < lines.length &&
-      lines[cursor].trim() &&
-      !/^(#{1,3}\s|```|[-*+]\s|>\s?)/.test(lines[cursor])
-    )
-      paragraph.push(lines[cursor++]);
-    blocks.push(
-      <p key={cursor}>{renderInline(paragraph.join(" "), onWikiLink)}</p>,
-    );
-  }
-  return <article className="markdown-reading">{blocks}</article>;
 };
 
 const graphScope = (
@@ -428,58 +270,134 @@ const findPositions = (text: string, query: string): number[] => {
   return positions;
 };
 
-const EyeIcon = (): React.JSX.Element => (
-  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-    <path
-      d="M2.5 12s3.4-5.5 9.5-5.5S21.5 12 21.5 12 18.1 17.5 12 17.5 2.5 12 2.5 12Z"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    />
-    <circle cx="12" cy="12" fill="currentColor" r="2.3" />
-  </svg>
-);
-
 const defaultAppInfo: BrainariumAppInfo = {
   description: "A local-first editor for the files you already trust.",
   name: "Brainarium",
   version: "",
 };
 
+type NavigationEntry = {
+  relativePath: string;
+};
+
+const documentLabel = (
+  relativePath: string,
+  snapshot?: VaultSnapshot,
+): string =>
+  snapshot?.documents.find(
+    (candidate) => candidate.relativePath === relativePath,
+  )?.title ?? relativePath;
+
+type IconName =
+  | "back"
+  | "connections"
+  | "files"
+  | "forward"
+  | "graph"
+  | "menu"
+  | "moon"
+  | "search"
+  | "sun";
+
+const Icon = ({ name }: { name: IconName }): React.JSX.Element => {
+  const paths: Record<IconName, React.JSX.Element> = {
+    back: <path d="m14.5 5-7 7 7 7M8 12h9" />,
+    connections: (
+      <path d="M9 7.5 7.5 6a3.2 3.2 0 0 0-4.5 4.5l2 2a3.2 3.2 0 0 0 4.5 0l1-1M15 16.5l1.5 1.5A3.2 3.2 0 0 0 21 13.5l-2-2a3.2 3.2 0 0 0-4.5 0l-1 1M8 16l8-8" />
+    ),
+    files: <path d="M4 4.5h6l1.6 2H20v13H4zM7.5 11h9M7.5 15h6" />,
+    forward: <path d="m9.5 5 7 7-7 7M16 12H7" />,
+    graph: (
+      <path d="M6 5.5a2 2 0 1 0 0 .01M18 5.5a2 2 0 1 0 0 .01M12 18.5a2 2 0 1 0 0 .01M7.7 7.1l2.9 9.2M16.3 7.1l-2.9 9.2M8 5.5h8" />
+    ),
+    menu: <path d="M5 7h14M5 12h14M5 17h14" />,
+    moon: <path d="M20 15.2A8 8 0 1 1 8.8 4 6.2 6.2 0 0 0 20 15.2Z" />,
+    search: (
+      <>
+        <circle cx="10.5" cy="10.5" r="5.5" />
+        <path d="m15 15 4 4" />
+      </>
+    ),
+    sun: (
+      <>
+        <circle cx="12" cy="12" r="3.5" />
+        <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
+      </>
+    ),
+  };
+  return (
+    <svg aria-hidden="true" className="ui-icon" fill="none" viewBox="0 0 24 24">
+      {paths[name]}
+    </svg>
+  );
+};
+
 const App = (): React.JSX.Element => {
   const [appInfo, setAppInfo] = useState<BrainariumAppInfo>(defaultAppInfo);
   const [snapshot, setSnapshot] = useState<VaultSnapshot>();
-  const [document, setDocument] = useState<VaultDocumentContent>();
+  const [session, dispatchSession] = useReducer(
+    documentSessionReducer,
+    undefined,
+    emptyDocumentSession,
+  );
+  const document = session.base;
+  const editorText = session.draft;
   const [recentVaults, setRecentVaults] = useState<RecentVault[]>([]);
   const [isChoosing, setIsChoosing] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"preview" | "editor">("preview");
-  const [editorText, setEditorText] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [editorMode, setEditorMode] = useState<MarkdownEditorMode>("assisted");
+  const [isReloading, setIsReloading] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+  const [isConfirmingReload, setIsConfirmingReload] = useState(false);
   const [isLoadingLinkGraph, setIsLoadingLinkGraph] = useState(false);
   const [linkGraph, setLinkGraph] = useState<VaultLinkGraph>();
-  const [workspaceView, setWorkspaceView] = useState<"document" | "graph">(
-    "document",
-  );
+  const [workspaceView, setWorkspaceView] = useState<
+    "connections" | "document" | "graph"
+  >("document");
   const [graphMode, setGraphMode] = useState<"global" | "local">("global");
   const [graphQuery, setGraphQuery] = useState("");
   const [localGraphDepth, setLocalGraphDepth] = useState(1);
   const [isFindOpen, setIsFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
-  const [findIndex, setFindIndex] = useState(0);
+  const [findIndex, setFindIndex] = useState(-1);
   const [vaultSearchQuery, setVaultSearchQuery] = useState("");
   const [vaultSearchResults, setVaultSearchResults] = useState<
     VaultSearchResult[]
   >([]);
-  const [externalChangeNotice, setExternalChangeNotice] = useState<string>();
   const [isVaultSearchOpen, setIsVaultSearchOpen] = useState(false);
+  const [isQuickOpen, setIsQuickOpen] = useState(false);
+  const [quickOpenQuery, setQuickOpenQuery] = useState("");
+  const [quickOpenIndex, setQuickOpenIndex] = useState(0);
+  const [isRecentVaultsOpen, setIsRecentVaultsOpen] = useState(false);
+  const [isConnectionsOpen, setIsConnectionsOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => window.innerWidth <= 860,
+  );
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [history, setHistory] = useState<NavigationEntry[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [lastSavedAt, setLastSavedAt] = useState<Date>();
   const [error, setError] = useState<string>();
-  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<MarkdownEditorHandle>(null);
   const documentRef = useRef<VaultDocumentContent | undefined>(undefined);
   const editorTextRef = useRef("");
+  const sessionRef = useRef(session);
+  const sessionGenerationRef = useRef(0);
+  const saveRequestRef = useRef(0);
   const findPositionsInDocument = document
     ? findPositions(editorText, findQuery)
     : [];
+
+  useEffect(() => {
+    const collapseForCompactWindow = (): void => {
+      if (window.innerWidth <= 860) setIsSidebarCollapsed(true);
+    };
+    collapseForCompactWindow();
+    window.addEventListener("resize", collapseForCompactWindow);
+    return () => window.removeEventListener("resize", collapseForCompactWindow);
+  }, []);
 
   const refreshRecents = async (): Promise<void> => {
     setRecentVaults(await window.brainarium.listRecentVaults());
@@ -496,7 +414,9 @@ const App = (): React.JSX.Element => {
   useEffect(() => {
     documentRef.current = document;
     editorTextRef.current = editorText;
-  }, [document, editorText]);
+    sessionRef.current = session;
+    sessionGenerationRef.current = session.generation;
+  }, [document, editorText, session]);
 
   useEffect(
     () =>
@@ -504,43 +424,38 @@ const App = (): React.JSX.Element => {
         setSnapshot(nextSnapshot);
         const openDocument = documentRef.current;
         if (!openDocument) return;
+        const generation = sessionGenerationRef.current;
         const stillExists = nextSnapshot.documents.some(
           (candidate) => candidate.relativePath === openDocument.relativePath,
         );
         if (!stillExists) {
-          setDocument(undefined);
-          setEditorText("");
-          setExternalChangeNotice(
-            "The open file was removed outside Brainarium.",
-          );
+          dispatchSession({ type: "missing" });
           return;
         }
-        if (
-          openDocument.kind === "markdown" &&
-          editorTextRef.current !== openDocument.text
-        ) {
-          setExternalChangeNotice(
-            "This file changed outside Brainarium. Your unsaved editor changes were kept.",
-          );
-          return;
-        }
+        if (openDocument.kind === "markdown")
+          dispatchSession({ type: "reconcile" });
         void window.brainarium
           .readDocument(openDocument.relativePath)
           .then((freshDocument) => {
             if (
               documentRef.current?.relativePath ===
                 freshDocument.relativePath &&
-              editorTextRef.current === documentRef.current.text
+              sessionGenerationRef.current === generation
             ) {
-              setDocument(freshDocument);
-              setEditorText(freshDocument.text);
-              setExternalChangeNotice(undefined);
+              if (freshDocument.kind === "markdown") {
+                dispatchSession({
+                  document: freshDocument,
+                  type: "reconcileClean",
+                });
+              } else {
+                dispatchSession({ document: freshDocument, type: "open" });
+              }
             }
           })
           .catch(() => {
-            setExternalChangeNotice(
-              "The open file changed before Brainarium could refresh it.",
-            );
+            if (sessionGenerationRef.current === generation) {
+              dispatchSession({ type: "missing" });
+            }
           });
       }),
     [],
@@ -554,20 +469,31 @@ const App = (): React.JSX.Element => {
     [],
   );
 
+  const confirmLeaveDocument = (): boolean => {
+    const { status } = sessionRef.current;
+    if (status !== "dirty" && status !== "conflict" && status !== "missing") {
+      return true;
+    }
+    return window.confirm(
+      "Discard the unsaved copy in Brainarium? Your file on disk will not be changed.",
+    );
+  };
+
   const chooseVault = async (): Promise<void> => {
+    if (!confirmLeaveDocument()) return;
     setIsChoosing(true);
     setError(undefined);
     try {
       const result = await window.brainarium.chooseVault();
       if (!result.cancelled) {
         setSnapshot(result.snapshot);
-        setDocument(undefined);
-        setEditorText("");
+        dispatchSession({ type: "clear" });
         setCopied(false);
         setFindQuery("");
         setLinkGraph(undefined);
         setWorkspaceView("document");
-        setExternalChangeNotice(undefined);
+        setIsComparing(false);
+        setIsConfirmingReload(false);
         await refreshRecents();
       }
     } catch {
@@ -580,33 +506,69 @@ const App = (): React.JSX.Element => {
   };
 
   const openRecentVault = async (id: string): Promise<void> => {
+    if (!confirmLeaveDocument()) return;
     setError(undefined);
     try {
       setSnapshot(await window.brainarium.openRecentVault(id));
-      setDocument(undefined);
-      setEditorText("");
+      dispatchSession({ type: "clear" });
       setCopied(false);
       setFindQuery("");
       setLinkGraph(undefined);
       setWorkspaceView("document");
-      setExternalChangeNotice(undefined);
+      setIsComparing(false);
+      setIsConfirmingReload(false);
       await refreshRecents();
     } catch {
       setError("That vault is unavailable. Choose another folder to continue.");
     }
   };
 
-  const readDocument = async (relativePath: string): Promise<void> => {
+  const scrollToFragment = (fragment: string): void => {
+    window.setTimeout(() => {
+      globalThis.document.getElementById(fragment)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+  };
+
+  const recordHistory = (relativePath: string): void => {
+    setHistory((previous) => {
+      const next = previous.slice(0, historyIndex + 1);
+      if (next[next.length - 1]?.relativePath === relativePath) return previous;
+      setHistoryIndex(next.length);
+      return [...next, { relativePath }];
+    });
+  };
+
+  const readDocument = async (
+    relativePath: string,
+    fragment?: string,
+    navigation: "record" | "restore" = "record",
+  ): Promise<void> => {
+    if (documentRef.current?.relativePath === relativePath && fragment) {
+      scrollToFragment(fragment);
+      return;
+    }
+    if (
+      documentRef.current?.relativePath !== relativePath &&
+      !confirmLeaveDocument()
+    ) {
+      return;
+    }
     setError(undefined);
     try {
       const nextDocument = await window.brainarium.readDocument(relativePath);
-      setDocument(nextDocument);
-      setEditorText(nextDocument.text);
+      dispatchSession({ document: nextDocument, type: "open" });
+      setLastSavedAt(undefined);
       setCopied(false);
       setFindQuery("");
       setFindIndex(0);
       setWorkspaceView("document");
-      setExternalChangeNotice(undefined);
+      setIsComparing(false);
+      setIsConfirmingReload(false);
+      if (navigation === "record") recordHistory(relativePath);
+      if (fragment) scrollToFragment(fragment);
     } catch {
       setError(
         "Brainarium could not read that file. It may have changed outside the vault.",
@@ -614,35 +576,174 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  const navigateHistory = (direction: -1 | 1): void => {
+    const nextIndex = historyIndex + direction;
+    const target = history[nextIndex];
+    if (!target) return;
+    setHistoryIndex(nextIndex);
+    void readDocument(target.relativePath, undefined, "restore");
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const modifier = event.metaKey || event.ctrlKey;
+      const key = event.key.toLocaleLowerCase();
+      if (event.key === "Escape") {
+        setIsQuickOpen(false);
+        setIsFindOpen(false);
+        setIsConnectionsOpen(false);
+        return;
+      }
+      if (!modifier) return;
+      if (key === "p") {
+        event.preventDefault();
+        setIsQuickOpen(true);
+      } else if (key === "e" && document?.kind === "markdown") {
+        event.preventDefault();
+        setViewMode((current) =>
+          current === "preview" ? "editor" : "preview",
+        );
+      } else if (
+        key === "m" &&
+        event.shiftKey &&
+        document?.kind === "markdown"
+      ) {
+        event.preventDefault();
+        setViewMode("editor");
+        setEditorMode((current) =>
+          current === "assisted" ? "source" : "assisted",
+        );
+      } else if (key === "l" && event.shiftKey) {
+        event.preventDefault();
+        setIsSidebarCollapsed((current) => !current);
+      } else if (key === "g" && event.shiftKey) {
+        event.preventDefault();
+        setWorkspaceView("connections");
+      } else if (key === "g") {
+        event.preventDefault();
+        setWorkspaceView("graph");
+        void window.brainarium
+          .buildVaultLinkGraph()
+          .then(setLinkGraph)
+          .catch(() =>
+            setError("Brainarium could not build the vault link graph."),
+          );
+      } else if (event.altKey && event.key === "ArrowLeft") {
+        event.preventDefault();
+        navigateHistory(-1);
+      } else if (event.altKey && event.key === "ArrowRight") {
+        event.preventDefault();
+        navigateHistory(1);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [document?.kind, history, historyIndex]);
+
   const saveDocument = async (): Promise<void> => {
-    if (!document || document.kind !== "markdown") return;
-    setIsSaving(true);
+    const current = sessionRef.current;
+    if (
+      !current.base ||
+      current.base.kind !== "markdown" ||
+      current.status !== "dirty"
+    ) {
+      return;
+    }
+    const requestId = ++saveRequestRef.current;
+    const generation = current.generation;
+    const submittedText = current.draft;
+    dispatchSession({ requestId, submittedText, type: "saveStart" });
     setError(undefined);
     try {
-      const saved = await window.brainarium.saveDocument({
-        baseVersion: document.version,
-        relativePath: document.relativePath,
-        text: editorText,
+      const result = await window.brainarium.saveDocument({
+        baseVersion: current.base.version,
+        relativePath: current.base.relativePath,
+        text: submittedText,
       });
-      setDocument(saved);
-      setEditorText(saved.text);
+      if (sessionGenerationRef.current !== generation) return;
+      dispatchSession({ requestId, result, type: "saveResult" });
+      if (result.status === "saved") setLastSavedAt(new Date());
       setLinkGraph(undefined);
-      setExternalChangeNotice(undefined);
     } catch {
+      if (sessionGenerationRef.current === generation) {
+        dispatchSession({ requestId, type: "saveFailed" });
+      }
       setError(
         "Brainarium could not save this file. It may have changed outside the app.",
       );
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  const openLinkGraph = async (): Promise<void> => {
+  const reloadFromDisk = async (): Promise<void> => {
+    const current = sessionRef.current;
+    if (!current.base) return;
+    setIsReloading(true);
+    try {
+      const disk = await window.brainarium.readDocument(
+        current.base.relativePath,
+      );
+      if (sessionGenerationRef.current === current.generation) {
+        dispatchSession({ document: disk, type: "open" });
+        setIsComparing(false);
+        setIsConfirmingReload(false);
+      }
+    } catch {
+      if (sessionGenerationRef.current === current.generation) {
+        dispatchSession({ type: "missing" });
+      }
+    } finally {
+      setIsReloading(false);
+    }
+  };
+
+  const keepMine = async (): Promise<void> => {
+    const current = sessionRef.current;
+    if (!current.base || !current.disk || current.status !== "conflict") return;
+    const requestId = ++saveRequestRef.current;
+    const generation = current.generation;
+    const submittedText = current.draft;
+    // Rebase the local draft onto the exact disk SHA shown in Compare. The
+    // main process performs the final optimistic check before replacement.
+    dispatchSession({
+      requestId,
+      submittedText,
+      type: "saveStart",
+    });
+    try {
+      const result = await window.brainarium.saveDocument({
+        baseVersion: current.disk.version,
+        relativePath: current.base.relativePath,
+        text: submittedText,
+      });
+      if (sessionGenerationRef.current !== generation) return;
+      dispatchSession({ requestId, result, type: "saveResult" });
+      if (result.status === "saved") {
+        setIsComparing(false);
+        setLastSavedAt(new Date());
+      }
+    } catch {
+      if (sessionGenerationRef.current === generation) {
+        dispatchSession({ requestId, type: "saveFailed" });
+      }
+      setError("Brainarium could not keep this copy. Try comparing again.");
+    }
+  };
+
+  useEffect(() => {
+    if (session.status !== "dirty" || document?.kind !== "markdown") {
+      return;
+    }
+    const timer = window.setTimeout(() => void saveDocument(), 750);
+    return () => window.clearTimeout(timer);
+  }, [document?.kind, editorText, session.status]);
+
+  const buildLinkGraph = async (): Promise<VaultLinkGraph | undefined> => {
     setIsLoadingLinkGraph(true);
     setError(undefined);
     try {
-      setLinkGraph(await window.brainarium.buildVaultLinkGraph());
-      setWorkspaceView("graph");
+      const graph = await window.brainarium.buildVaultLinkGraph();
+      setLinkGraph(graph);
+      return graph;
     } catch {
       setError("Brainarium could not build the vault link graph.");
     } finally {
@@ -650,22 +751,15 @@ const App = (): React.JSX.Element => {
     }
   };
 
-  const openWikiLink = (target: string): void => {
-    if (!snapshot) return;
-    const normalized = target.toLocaleLowerCase();
-    const resolved = snapshot.documents.find(
-      (candidate) =>
-        candidate.kind === "markdown" &&
-        (candidate.title.toLocaleLowerCase() === normalized ||
-          candidate.relativePath
-            .replace(/\.(?:md|markdown)$/i, "")
-            .toLocaleLowerCase() === normalized),
-    );
-    if (resolved) {
-      void readDocument(resolved.relativePath);
-    } else {
-      setError(`No Markdown note named “${target}” exists in this vault.`);
-    }
+  const openLinkGraph = async (): Promise<void> => {
+    const graph = await buildLinkGraph();
+    if (graph) setWorkspaceView("graph");
+  };
+
+  const openExternalLink = (target: string): void => {
+    void window.brainarium.openExternalLink(target).catch(() => {
+      setError("Brainarium could not open that external link.");
+    });
   };
 
   const copyDocumentContent = async (): Promise<void> => {
@@ -687,16 +781,31 @@ const App = (): React.JSX.Element => {
   const moveFind = (direction: 1 | -1): void => {
     if (findPositionsInDocument.length === 0) return;
     const nextIndex =
-      (findIndex + direction + findPositionsInDocument.length) %
-      findPositionsInDocument.length;
+      findIndex < 0
+        ? direction === 1
+          ? 0
+          : findPositionsInDocument.length - 1
+        : (findIndex + direction + findPositionsInDocument.length) %
+          findPositionsInDocument.length;
     setFindIndex(nextIndex);
-    setViewMode("editor");
+    if (viewMode !== "editor") return;
     window.setTimeout(() => {
       const from = findPositionsInDocument[nextIndex];
       editorRef.current?.focus();
-      editorRef.current?.setSelectionRange(from, from + findQuery.length);
+      editorRef.current?.selectSourceRange(from, from + findQuery.length);
     }, 0);
   };
+
+  const savedLabel = (() => {
+    if (session.status === "dirty") return "Unsaved changes";
+    if (session.status === "saving") return "Saving…";
+    if (session.status === "conflict") return "Needs review";
+    if (!lastSavedAt) return "Saved from disk";
+    return `Saved ${lastSavedAt.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  })();
 
   const searchVault = async (): Promise<void> => {
     if (!vaultSearchQuery.trim()) {
@@ -720,124 +829,561 @@ const App = (): React.JSX.Element => {
           localGraphDepth,
         )
       : linkGraph;
+  const quickOpenDocuments = snapshot
+    ? snapshot.documents
+        .filter((candidate) => {
+          const query = quickOpenQuery.trim().toLocaleLowerCase();
+          return (
+            !query ||
+            candidate.title.toLocaleLowerCase().includes(query) ||
+            candidate.relativePath.toLocaleLowerCase().includes(query)
+          );
+        })
+        .slice(0, 12)
+    : [];
+  const outgoingLinks =
+    document && linkGraph
+      ? linkGraph.edges.filter((edge) => edge.source === document.relativePath)
+      : [];
+  const backlinks =
+    document && linkGraph
+      ? linkGraph.edges.filter((edge) => edge.target === document.relativePath)
+      : [];
 
   if (snapshot) {
     return (
-      <main className="vault-shell">
-        <aside className="vault-sidebar">
-          <div className="vault-sidebar-heading">
-            <div className="sidebar-app-identity">
-              <span aria-hidden="true" className="sidebar-monogram">
-                B<span className="monogram-cursor">_</span>
-              </span>
-              <div>
-                <p className="sidebar-app-name">{appInfo.name}</p>
-                <p className="sidebar-app-version">
-                  {appInfo.version ? `v${appInfo.version}` : "Local app"}
-                </p>
+      <main
+        className={`vault-shell${isSidebarCollapsed ? " sidebar-collapsed" : ""}`}
+        data-theme={theme}
+      >
+        <aside
+          className={`vault-sidebar${isSidebarCollapsed ? " is-collapsed" : ""}`}
+        >
+          <button
+            aria-label={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-pressed={!isSidebarCollapsed}
+            className="sidebar-toggle"
+            title={`${isSidebarCollapsed ? "Show" : "Hide"} sidebar (Cmd+Shift+L)`}
+            type="button"
+            onClick={() => setIsSidebarCollapsed((current) => !current)}
+          >
+            <Icon name="menu" />
+          </button>
+          <div className="sidebar-content">
+            <div className="vault-sidebar-heading">
+              <div className="sidebar-app-identity">
+                <span aria-hidden="true" className="sidebar-monogram">
+                  B<span className="monogram-cursor">_</span>
+                </span>
+                <div>
+                  <p className="sidebar-app-name">{appInfo.name}</p>
+                  <p className="sidebar-app-version">
+                    {appInfo.version ? `v${appInfo.version}` : "Local app"}
+                  </p>
+                </div>
+                <button
+                  aria-label={
+                    theme === "light" ? "Use night theme" : "Use light theme"
+                  }
+                  aria-pressed={theme === "dark"}
+                  className="theme-toggle"
+                  title={
+                    theme === "light" ? "Use night theme" : "Use light theme"
+                  }
+                  type="button"
+                  onClick={() =>
+                    setTheme((current) =>
+                      current === "light" ? "dark" : "light",
+                    )
+                  }
+                >
+                  <Icon name={theme === "light" ? "moon" : "sun"} />
+                  <span>{theme === "light" ? "Night" : "Light"}</span>
+                </button>
               </div>
+              <p className="eyebrow">OPEN VAULT</p>
+              <h1>{snapshot.tree.name}</h1>
+              <p>{snapshot.documents.length} readable documents</p>
             </div>
-            <p className="eyebrow">OPEN VAULT</p>
-            <h1>{snapshot.tree.name}</h1>
-            <p>{snapshot.documents.length} readable documents</p>
-            <div className="vault-actions">
+            <div className="vault-search-controls">
               <button
-                className="vault-action-primary"
+                className="vault-search-trigger"
+                title="Search this vault"
                 type="button"
-                onClick={() => void chooseVault()}
-                disabled={isChoosing}
-              >
-                Open another vault
-              </button>
-              <button
-                className="vault-action-secondary"
-                type="button"
-                onClick={() => void openLinkGraph()}
-                disabled={isLoadingLinkGraph}
-              >
-                {isLoadingLinkGraph
-                  ? "Building graph…"
-                  : "Build & open vault graph"}
-              </button>
-            </div>
-            <p className="vault-graph-storage-hint">
-              The graph is a rebuildable local index in
-              <code>.brainarium/graph-v1.json</code>.
-            </p>
-          </div>
-          <div className="vault-search-controls">
-            <button
-              aria-label="Search this vault"
-              className="icon-action"
-              title="Search this vault"
-              type="button"
-              onClick={() => setIsVaultSearchOpen(!isVaultSearchOpen)}
-            >
-              ⌕
-            </button>
-            {isVaultSearchOpen && (
-              <form
-                className="vault-search-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void searchVault();
+                onClick={() => {
+                  setIsVaultSearchOpen((current) => !current);
+                  setVaultSearchResults([]);
                 }}
               >
-                <input
-                  aria-label="Search this vault"
-                  autoFocus
-                  placeholder="Search all files"
-                  type="search"
-                  value={vaultSearchQuery}
-                  onChange={(event) => setVaultSearchQuery(event.target.value)}
+                <Icon name="search" />
+                Search
+              </button>
+              {isVaultSearchOpen && (
+                <form
+                  className="vault-search-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void searchVault();
+                  }}
+                >
+                  <input
+                    aria-label="Search this vault"
+                    autoFocus
+                    placeholder="Search all files"
+                    type="search"
+                    value={vaultSearchQuery}
+                    onChange={(event) =>
+                      setVaultSearchQuery(event.target.value)
+                    }
+                  />
+                  <button type="submit">Search</button>
+                </form>
+              )}
+            </div>
+            <div className="sidebar-commands" aria-label="Vault commands">
+              <button
+                title="Quick open (Cmd+P)"
+                type="button"
+                onClick={() => setIsQuickOpen(true)}
+              >
+                <Icon name="search" />
+                Quick open
+                <kbd>⌘P</kbd>
+              </button>
+              <button
+                aria-label="Back"
+                disabled={historyIndex <= 0}
+                title="Back (Option+Left)"
+                type="button"
+                onClick={() => navigateHistory(-1)}
+              >
+                <Icon name="back" />
+              </button>
+              <button
+                aria-label="Forward"
+                disabled={historyIndex >= history.length - 1}
+                title="Forward (Option+Right)"
+                type="button"
+                onClick={() => navigateHistory(1)}
+              >
+                <Icon name="forward" />
+              </button>
+            </div>
+            {isVaultSearchOpen && vaultSearchResults.length > 0 && (
+              <section
+                className="vault-search-results"
+                aria-label="Vault search results"
+              >
+                {vaultSearchResults.map((result) => (
+                  <button
+                    key={result.relativePath}
+                    type="button"
+                    onClick={() => void readDocument(result.relativePath)}
+                  >
+                    <strong>{result.title}</strong>
+                    <span>{result.snippet}</span>
+                  </button>
+                ))}
+              </section>
+            )}
+            <section className="vault-tree" aria-label="Vault files">
+              <p className="section-label">FILES</p>
+              <ul>
+                <TreeNode
+                  activePath={document?.relativePath}
+                  node={snapshot.tree}
+                  onSelect={(relativePath) => void readDocument(relativePath)}
                 />
-                <button type="submit">Search</button>
-              </form>
+              </ul>
+            </section>
+            <nav className="library-navigation" aria-label="Library navigation">
+              <p className="section-label">LIBRARY</p>
+              <button
+                aria-current={workspaceView === "graph" ? "page" : undefined}
+                title="Open global graph (Cmd+G)"
+                type="button"
+                onClick={() => void openLinkGraph()}
+              >
+                <Icon name="graph" />
+                Graph
+                <kbd>⌘G</kbd>
+              </button>
+              <button
+                aria-current={
+                  workspaceView === "connections" ? "page" : undefined
+                }
+                title="Open vault connections (Cmd+Shift+G)"
+                type="button"
+                onClick={() => setWorkspaceView("connections")}
+              >
+                <Icon name="connections" />
+                Connections
+                <kbd>⇧⌘G</kbd>
+              </button>
+              <button
+                className="library-vault-switch"
+                disabled={isChoosing}
+                title="Open another vault"
+                type="button"
+                onClick={() => void chooseVault()}
+              >
+                <Icon name="files" />
+                {isChoosing ? "Opening vault…" : "Open another vault"}
+              </button>
+            </nav>
+            {recentVaults.length > 0 && (
+              <nav className="recent-vaults" aria-label="Recent vaults">
+                <button
+                  aria-expanded={isRecentVaultsOpen}
+                  className="recent-vaults-toggle"
+                  title="Show recent vaults"
+                  type="button"
+                  onClick={() => setIsRecentVaultsOpen((current) => !current)}
+                >
+                  <span>RECENT VAULTS</span>
+                  <span aria-hidden="true">
+                    {isRecentVaultsOpen ? "⌄" : "›"}
+                  </span>
+                </button>
+                {isRecentVaultsOpen &&
+                  recentVaults.map((recent) => (
+                    <button
+                      key={recent.id}
+                      title={`Open ${recent.name}`}
+                      type="button"
+                      onClick={() => void openRecentVault(recent.id)}
+                    >
+                      {recent.name}
+                    </button>
+                  ))}
+              </nav>
             )}
           </div>
-          {isVaultSearchOpen && vaultSearchResults.length > 0 && (
-            <section
-              className="vault-search-results"
-              aria-label="Vault search results"
-            >
-              {vaultSearchResults.map((result) => (
-                <button
-                  key={result.relativePath}
-                  type="button"
-                  onClick={() => void readDocument(result.relativePath)}
-                >
-                  <strong>{result.title}</strong>
-                  <span>{result.snippet}</span>
-                </button>
-              ))}
-            </section>
-          )}
-          <section className="vault-tree" aria-label="Vault files">
-            <p className="section-label">FILES</p>
-            <ul>
-              <TreeNode
-                node={snapshot.tree}
-                onSelect={(relativePath) => void readDocument(relativePath)}
-              />
-            </ul>
-          </section>
-          {recentVaults.length > 0 && (
-            <nav className="recent-vaults" aria-label="Recent vaults">
-              <p className="section-label">RECENT VAULTS</p>
-              {recentVaults.map((recent) => (
-                <button
-                  key={recent.id}
-                  type="button"
-                  onClick={() => void openRecentVault(recent.id)}
-                >
-                  {recent.name}
-                </button>
-              ))}
-            </nav>
-          )}
         </aside>
         <section className="document-workspace" aria-label="Document workspace">
-          {workspaceView === "graph" ? (
+          <nav
+            className="workspace-command-bar"
+            aria-label="Workspace controls"
+          >
+            <button
+              type="button"
+              onClick={() => setIsQuickOpen(true)}
+              title="Quick open (Cmd+P)"
+            >
+              Quick open
+              <kbd>⌘P</kbd>
+            </button>
+            <button
+              type="button"
+              disabled={historyIndex <= 0}
+              onClick={() => navigateHistory(-1)}
+              title="Back (Option+Left)"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              disabled={historyIndex >= history.length - 1}
+              onClick={() => navigateHistory(1)}
+              title="Forward (Option+Right)"
+            >
+              Forward
+            </button>
+            {document?.kind === "markdown" && (
+              <button
+                aria-expanded={isConnectionsOpen}
+                type="button"
+                onClick={() => setIsConnectionsOpen((current) => !current)}
+                title="Toggle connections (Cmd+Shift+B)"
+              >
+                Connections
+              </button>
+            )}
+          </nav>
+          {isQuickOpen && (
+            <div className="quick-open-scrim" role="presentation">
+              <section
+                aria-label="Quick open"
+                aria-modal="true"
+                className="quick-open-dialog"
+                role="dialog"
+              >
+                <div className="quick-open-heading">
+                  <div>
+                    <p className="section-label">GO TO FILE</p>
+                    <h2>Quick open</h2>
+                  </div>
+                  <button type="button" onClick={() => setIsQuickOpen(false)}>
+                    Close
+                  </button>
+                </div>
+                <input
+                  aria-label="Search files by title or path"
+                  autoFocus
+                  placeholder="Search files by title or path"
+                  type="search"
+                  value={quickOpenQuery}
+                  onChange={(event) => {
+                    setQuickOpenQuery(event.target.value);
+                    setQuickOpenIndex(0);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      setQuickOpenIndex((current) =>
+                        Math.min(
+                          current + 1,
+                          Math.max(quickOpenDocuments.length - 1, 0),
+                        ),
+                      );
+                    } else if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setQuickOpenIndex((current) => Math.max(current - 1, 0));
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      const selected = quickOpenDocuments[quickOpenIndex];
+                      if (!selected) return;
+                      setIsQuickOpen(false);
+                      void readDocument(selected.relativePath);
+                    }
+                  }}
+                />
+                <p className="quick-open-hint">
+                  Use arrows and Enter, or press Escape to close.
+                </p>
+                <ul className="quick-open-results">
+                  {quickOpenDocuments.length > 0 ? (
+                    quickOpenDocuments.map((candidate, index) => (
+                      <li key={candidate.relativePath}>
+                        <button
+                          className={
+                            quickOpenIndex === index ? "is-active" : ""
+                          }
+                          type="button"
+                          onClick={() => {
+                            setIsQuickOpen(false);
+                            void readDocument(candidate.relativePath);
+                          }}
+                        >
+                          <strong>{candidate.title}</strong>
+                          <span>{candidate.relativePath}</span>
+                        </button>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="quick-open-empty">
+                      No files match that search.
+                    </li>
+                  )}
+                </ul>
+              </section>
+            </div>
+          )}
+          {document?.kind === "markdown" && isConnectionsOpen && (
+            <aside className="connections-panel" aria-label="Connections">
+              <div className="connections-heading">
+                <div>
+                  <p className="section-label">THIS NOTE</p>
+                  <h2>Connections</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsConnectionsOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+              {!linkGraph ? (
+                <div className="connections-empty">
+                  <p>
+                    Build the local link index to see this note’s outgoing links
+                    and backlinks.
+                  </p>
+                  <button
+                    className="vault-action-primary"
+                    disabled={isLoadingLinkGraph}
+                    type="button"
+                    onClick={() => void buildLinkGraph()}
+                  >
+                    {isLoadingLinkGraph
+                      ? "Building connections…"
+                      : "Build connections"}
+                  </button>
+                  <p className="connections-note">
+                    This creates only the rebuildable{" "}
+                    <code>.brainarium/graph-v1.json</code> index.
+                  </p>
+                </div>
+              ) : (
+                <div className="connections-lists">
+                  <section>
+                    <h3>Outgoing · {outgoingLinks.length}</h3>
+                    {outgoingLinks.length ? (
+                      <ul>
+                        {outgoingLinks.map((link) => (
+                          <li key={`${link.source}-${link.target}`}>
+                            <button
+                              type="button"
+                              onClick={() => void readDocument(link.target)}
+                            >
+                              {documentLabel(link.target, snapshot)}
+                              <span>{link.target}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No resolved outgoing links.</p>
+                    )}
+                  </section>
+                  <section>
+                    <h3>Backlinks · {backlinks.length}</h3>
+                    {backlinks.length ? (
+                      <ul>
+                        {backlinks.map((link) => (
+                          <li key={`${link.source}-${link.target}`}>
+                            <button
+                              type="button"
+                              onClick={() => void readDocument(link.source)}
+                            >
+                              {documentLabel(link.source, snapshot)}
+                              <span>{link.source}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No backlinks yet.</p>
+                    )}
+                  </section>
+                  <button
+                    className="connections-graph-link"
+                    type="button"
+                    onClick={() => {
+                      setIsConnectionsOpen(false);
+                      setWorkspaceView("graph");
+                      setGraphMode("local");
+                    }}
+                  >
+                    Explore local graph
+                  </button>
+                </div>
+              )}
+            </aside>
+          )}
+          {workspaceView === "connections" ? (
+            <section
+              className="global-connections"
+              aria-labelledby="connections-title"
+            >
+              <header className="document-toolbar">
+                <div>
+                  <p className="section-label">VAULT-WIDE NAVIGATION</p>
+                  <h2 id="connections-title">Connections</h2>
+                  <p>Explore the relationships across your whole vault.</p>
+                </div>
+                <button
+                  className="vault-action-secondary"
+                  disabled={isLoadingLinkGraph}
+                  type="button"
+                  onClick={() => void buildLinkGraph()}
+                >
+                  <Icon name="graph" />
+                  {isLoadingLinkGraph ? "Building…" : "Refresh connections"}
+                </button>
+              </header>
+              {!linkGraph ? (
+                <div className="library-empty-state">
+                  <Icon name="connections" />
+                  <h3>Map your vault’s relationships</h3>
+                  <p>
+                    Build the local index to browse linked notes, backlinks, and
+                    notes without connections.
+                  </p>
+                  <button
+                    className="vault-action-primary"
+                    type="button"
+                    onClick={() => void buildLinkGraph()}
+                  >
+                    Build connection index
+                  </button>
+                </div>
+              ) : (
+                <div className="connection-overview">
+                  <div className="connection-stat">
+                    <strong>{linkGraph.nodes.length}</strong>
+                    <span>notes</span>
+                  </div>
+                  <div className="connection-stat">
+                    <strong>{linkGraph.edges.length}</strong>
+                    <span>resolved links</span>
+                  </div>
+                  <div className="connection-list">
+                    <h3>Most connected</h3>
+                    <p>Open a note to explore its local context.</p>
+                    <ul>
+                      {linkGraph.nodes
+                        .map((node) => ({
+                          node,
+                          count: linkGraph.edges.filter(
+                            (edge) =>
+                              edge.source === node.relativePath ||
+                              edge.target === node.relativePath,
+                          ).length,
+                        }))
+                        .sort(
+                          (left, right) =>
+                            right.count - left.count ||
+                            left.node.title.localeCompare(right.node.title),
+                        )
+                        .slice(0, 12)
+                        .map(({ node, count }) => (
+                          <li key={node.relativePath}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void readDocument(node.relativePath)
+                              }
+                            >
+                              <span>{node.title}</span>
+                              <em>{count} links</em>
+                            </button>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                  <div className="connection-list">
+                    <h3>Orphan notes</h3>
+                    <p>Notes with no resolved links yet.</p>
+                    <ul>
+                      {linkGraph.nodes
+                        .filter(
+                          (node) =>
+                            !linkGraph.edges.some(
+                              (edge) =>
+                                edge.source === node.relativePath ||
+                                edge.target === node.relativePath,
+                            ),
+                        )
+                        .slice(0, 12)
+                        .map((node) => (
+                          <li key={node.relativePath}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void readDocument(node.relativePath)
+                              }
+                            >
+                              {node.title}
+                            </button>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : workspaceView === "graph" ? (
             <>
               <header className="document-toolbar graph-toolbar">
                 <div>
@@ -930,22 +1476,32 @@ const App = (): React.JSX.Element => {
             <>
               <header className="document-toolbar">
                 <div>
-                  <p className="section-label">{document.kind.toUpperCase()}</p>
-                  <h2>{document.title}</h2>
+                  <div className="document-metadata-row">
+                    <p className="section-label">
+                      {document.kind.toUpperCase()}
+                    </p>
+                    {document.kind === "markdown" && (
+                      <span
+                        aria-live="polite"
+                        className="document-save-status"
+                        role="status"
+                      >
+                        {savedLabel}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="document-file-title">{document.title}</h2>
+                  <p className="document-path">{document.relativePath}</p>
                 </div>
                 <div className="toolbar-actions">
                   {document.kind === "markdown" && (
                     <button
-                      aria-label="Find in file"
-                      className="icon-action"
-                      title="Find in file"
+                      aria-expanded={isFindOpen}
+                      title="Find in file — keeps Reading preview open"
                       type="button"
-                      onClick={() => {
-                        setIsFindOpen(true);
-                        setViewMode("editor");
-                      }}
+                      onClick={() => setIsFindOpen(true)}
                     >
-                      ⌕
+                      Find
                     </button>
                   )}
                   {document.kind === "markdown" && (
@@ -955,32 +1511,46 @@ const App = (): React.JSX.Element => {
                       aria-label="Document view"
                     >
                       <button
-                        aria-label="Preview"
+                        aria-pressed={viewMode === "preview"}
                         className={viewMode === "preview" ? "active" : ""}
-                        title="Preview"
+                        title="Read (Cmd+E)"
                         type="button"
                         onClick={() => setViewMode("preview")}
                       >
-                        <EyeIcon />
+                        Read
                       </button>
                       <button
-                        aria-label="Editor"
+                        aria-pressed={viewMode === "editor"}
                         className={viewMode === "editor" ? "active" : ""}
-                        title="Editor"
+                        title="Edit (Cmd+E)"
                         type="button"
                         onClick={() => setViewMode("editor")}
                       >
-                        {"</>"}
+                        Edit
                       </button>
                     </div>
                   )}
                   {document.kind === "markdown" && viewMode === "editor" && (
                     <button
+                      aria-pressed={editorMode === "source"}
+                      className="editor-mode-action"
+                      type="button"
+                      onClick={() =>
+                        setEditorMode(
+                          editorMode === "assisted" ? "source" : "assisted",
+                        )
+                      }
+                    >
+                      {editorMode === "assisted" ? "Raw source" : "Assisted"}
+                    </button>
+                  )}
+                  {document.kind === "markdown" && viewMode === "editor" && (
+                    <button
                       type="button"
                       onClick={() => void saveDocument()}
-                      disabled={isSaving || editorText === document.text}
+                      disabled={session.status !== "dirty"}
                     >
-                      {isSaving ? "Saving…" : "Save"}
+                      {session.status === "saving" ? "Saving…" : "Save"}
                     </button>
                   )}
                   <button
@@ -988,14 +1558,29 @@ const App = (): React.JSX.Element => {
                     onClick={() => void copyDocumentContent()}
                     disabled={isCopying}
                   >
-                    {copied
-                      ? "Copied!"
-                      : isCopying
-                        ? "Copying…"
-                        : "Copy file content"}
+                    {copied ? "Copied!" : isCopying ? "Copying…" : "Copy"}
                   </button>
                 </div>
               </header>
+              {document.kind === "markdown" &&
+                (session.status === "conflict" ||
+                  session.status === "missing") && (
+                  <DocumentConflictPanel
+                    base={document}
+                    disk={session.disk}
+                    draft={editorText}
+                    isComparing={isComparing}
+                    isConfirmingReload={isConfirmingReload}
+                    isReloading={isReloading}
+                    onCancelReload={() => setIsConfirmingReload(false)}
+                    onCompare={() => setIsComparing(!isComparing)}
+                    onKeepMine={() => void keepMine()}
+                    onRequestReload={() => setIsConfirmingReload(true)}
+                    onReload={() => void reloadFromDisk()}
+                    onRetry={() => void reloadFromDisk()}
+                    state={session.status}
+                  />
+                )}
               {document.kind === "markdown" && isFindOpen && (
                 <form
                   className="find-bar"
@@ -1013,7 +1598,7 @@ const App = (): React.JSX.Element => {
                     value={findQuery}
                     onChange={(event) => {
                       setFindQuery(event.target.value);
-                      setFindIndex(0);
+                      setFindIndex(-1);
                     }}
                   />
                   <span className="find-count">
@@ -1047,17 +1632,24 @@ const App = (): React.JSX.Element => {
               )}
               {document.kind === "markdown" && viewMode === "preview" ? (
                 <MarkdownReading
-                  source={document.text}
-                  onWikiLink={openWikiLink}
+                  activeFindMatch={findIndex}
+                  documents={snapshot.documents}
+                  findQuery={isFindOpen ? findQuery : ""}
+                  onOpenDocument={(relativePath, fragment) =>
+                    void readDocument(relativePath, fragment)
+                  }
+                  onOpenExternal={openExternalLink}
+                  source={editorText}
+                  sourceRelativePath={document.relativePath}
                 />
               ) : document.kind === "markdown" ? (
-                <textarea
-                  aria-label="Markdown editor"
-                  className="document-editor"
+                <MarkdownEditor
+                  generation={session.generation}
+                  mode={editorMode}
+                  onChange={(text) => dispatchSession({ text, type: "edit" })}
+                  onSave={() => void saveDocument()}
                   ref={editorRef}
                   value={editorText}
-                  onChange={(event) => setEditorText(event.target.value)}
-                  spellCheck
                 />
               ) : document.kind === "csv" ? (
                 <CsvPreview source={document.text} />
@@ -1079,9 +1671,6 @@ const App = (): React.JSX.Element => {
             <p className="error" role="alert">
               {error}
             </p>
-          )}
-          {externalChangeNotice && (
-            <p className="notice">{externalChangeNotice}</p>
           )}
           {snapshot.issues.length > 0 && (
             <p className="notice">

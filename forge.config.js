@@ -46,13 +46,15 @@ module.exports = {
   packagerConfig: {
     appBundleId: "com.brainarium.app",
     appCategoryType: "public.app-category.productivity",
+    // Extension omitted so packager picks .icns on macOS / .ico on Windows.
+    icon: "./assets/icon",
     extraResource: ["rust/target/release/brainarium-indexer"],
     ...macOSReleaseConfig(),
   },
   rebuildConfig: {},
   makers: [
     new MakerZIP({}, ["darwin"]),
-    new MakerDMG({ format: "ULFO" }, ["darwin"]),
+    new MakerDMG({ format: "ULFO", icon: "./assets/icon.icns" }, ["darwin"]),
     new MakerSquirrel({
       authors: "Brainarium contributors",
       description: appDescription,

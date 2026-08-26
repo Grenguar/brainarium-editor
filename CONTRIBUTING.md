@@ -20,7 +20,9 @@ Use `npm run test:watch` while changing unit-tested code. `npm run quality`
 runs the formatter check, linter, type check, complete TypeScript and Rust test
 suites, strict Rust Clippy, and production package. `npm run make` creates the
 native artifacts for the current host under `out/make/`: a macOS DMG/ZIP,
-Windows Setup, Debian/Ubuntu `.deb`, or RPM `.rpm` as applicable. See
+Windows Setup, Debian/Ubuntu `.deb`, or RPM `.rpm` as applicable. For the next
+local installable build, use `npm run make:local-update`: it increments only
+the patch version without a Git tag and then runs the native maker. See
 [docs/BUILDING-ELECTRON-APPS.md](docs/BUILDING-ELECTRON-APPS.md) for the
 package flow and [docs/RELEASING.md](docs/RELEASING.md) for protected releases.
 

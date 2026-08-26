@@ -1,16 +1,16 @@
 # Graph Report - brainarium  (2026-08-25)
 
 ## Corpus Check
-- 63 files · ~143,344 words
+- 63 files · ~142,897 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 633 nodes · 960 edges · 65 communities (38 shown, 27 thin omitted)
+- 639 nodes · 966 edges · 58 communities (31 shown, 27 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.7)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cd58afd7`
+- Built from commit: `c2850b06`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -49,8 +49,6 @@
 - vault-watcher.ts
 - main/index.ts
 - Brainarium — Engineering Onboarding
-- VaultSnapshot
-- index.tsx
 - vault-reader.ts
 - preload/index.ts
 - ADR-004: Signed, notarized DMGs from immutable version tags
@@ -73,15 +71,10 @@
 - vitest
 - webpack
 - webpack-cli
-- vault.ts
-- vault-scanner.ts
-- index.tsx
-- VaultSnapshot
-- vault-reader.ts
 - fork-ts-checker-webpack-plugin
 
 ## God Nodes (most connected - your core abstractions)
-1. `Communities (59 total, 27 thin omitted)` - 32 edges
+1. `Communities (65 total, 27 thin omitted)` - 38 edges
 2. `VaultError` - 24 edges
 3. `Vault` - 23 edges
 4. `scripts` - 17 edges
@@ -99,15 +92,15 @@
   brainarium-mcp/src/main.rs → brainarium-mcp/src/lib.rs
 - `BrainariumVaultServer` --references--> `Vault`  [EXTRACTED]
   brainarium-mcp/src/main.rs → brainarium-mcp/src/lib.rs
-- `searchVault()` --calls--> `readVaultDocument()`  [EXTRACTED]
-  src/main/vault/vault-search.ts → src/main/vault/vault-reader.ts
 - `App()` --indirect_call--> `relativePath()`  [INFERRED]
   src/renderer/index.tsx → src/main/vault/vault-scanner.ts
+- `openVault()` --calls--> `scanVault()`  [EXTRACTED]
+  src/main/index.ts → src/main/vault/vault-scanner.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (65 total, 27 thin omitted)
+## Communities (58 total, 27 thin omitted)
 
 ### Community 0 - "Brainarium research notes"
 Cohesion: 0.08
@@ -130,8 +123,8 @@ Cohesion: 0.12
 Nodes (16): Brainarium product requirements, Codex and agents, Core user stories, CSV, Discovery and connections, Goals, Non-functional targets, Non-goals for v1 (+8 more)
 
 ### Community 5 - "docs/README.md"
-Cohesion: 0.20
-Nodes (9): indexer(), markdownFingerprint(), openVault(), recentVaults(), refreshCachedGraphAfterMarkdownChange(), scanVault(), searchVault(), roots (+1 more)
+Cohesion: 0.05
+Nodes (44): indexer(), markdownFingerprint(), openVault(), recentVaults(), refreshCachedGraphAfterMarkdownChange(), executeFile, IndexerOutput, RustIndexerService (+36 more)
 
 ### Community 6 - "Brainarium contributor guide"
 Cohesion: 0.19
@@ -139,15 +132,15 @@ Nodes (6): ADR-001: Editor engine decision gate, ADR-002: First-party Rust vault
 
 ### Community 7 - "Main components"
 Cohesion: 0.29
-Nodes (7): electron, @electron-forge/cli, devDependencies, electron, @electron-forge/cli, ts-loader, ts-loader
+Nodes (7): css-loader, electron, devDependencies, css-loader, electron, ts-loader, ts-loader
 
 ### Community 8 - "Milestone 2 — Reading, Editing, and CSV (6–10 days)"
 Cohesion: 0.18
 Nodes (32): BTreeMap, build_graph(), clean_link_target(), collect_markdown(), extract_line_links(), extract_links(), find_pair(), fingerprint() (+24 more)
 
 ### Community 9 - "Brainarium technical contracts"
-Cohesion: 0.05
-Nodes (42): Communities (59 total, 27 thin omitted), Community 0 - "Brainarium research notes", Community 10 - "[Unreleased]", Community 11 - "GitHub Actions plan", Community 12 - "main/index.ts", Community 13 - "compilerOptions", Community 14 - "RecentVaultStore", Community 15 - "csv-preview.tsx" (+34 more)
+Cohesion: 0.04
+Nodes (48): Communities (65 total, 27 thin omitted), Community 0 - "Brainarium research notes", Community 10 - "[Unreleased]", Community 11 - "GitHub Actions plan", Community 12 - "main/index.ts", Community 13 - "compilerOptions", Community 14 - "RecentVaultStore", Community 15 - "csv-preview.tsx" (+40 more)
 
 ### Community 10 - "[Unreleased]"
 Cohesion: 0.33
@@ -165,13 +158,9 @@ Nodes (32): AsRef, applies_the_configured_size_limit(), extension_for(), FileCon
 Cohesion: 0.12
 Nodes (15): node, src/**/*.ts, src/**/*.tsx, vitest/globals, compilerOptions, esModuleInterop, forceConsistentCasingInFileNames, jsx (+7 more)
 
-### Community 14 - "RecentVaultStore"
-Cohesion: 0.23
-Nodes (4): isStoredRecentVault(), RecentVaultStore, StoredRecentVault, temporaryRoots
-
 ### Community 15 - "csv-preview.tsx"
-Cohesion: 0.24
-Nodes (13): RFC-4180, candidates, cellValue(), csvDialectDirective(), CsvPreview(), CsvRow, CsvTable, detectDelimiter() (+5 more)
+Cohesion: 0.08
+Nodes (27): RFC-4180, isStoredRecentVault(), RecentVaultStore, StoredRecentVault, temporaryRoots, relativePath(), candidates, cellValue() (+19 more)
 
 ### Community 16 - "webpack.main.config.js"
 Cohesion: 0.33
@@ -225,10 +214,6 @@ Nodes (4): Building and running Electron apps, Create your own Electron Forge ap
 Cohesion: 0.18
 Nodes (10): Architecture, Brainarium — Engineering Onboarding, Build / test / run, Coding standards & conventions, Important notes & gotchas, Key directories & files, Overview, Pull-request requirements (+2 more)
 
-### Community 36 - "index.tsx"
-Cohesion: 0.21
-Nodes (7): isDerivedGraphPath(), OnSnapshot, Scan, snapshotFingerprint(), temporaryRoots, VaultWatcher, VaultWatcherOptions
-
 ### Community 39 - "ADR-004: Signed, notarized DMGs from immutable version tags"
 Cohesion: 0.40
 Nodes (4): ADR-004: Signed, notarized DMGs from immutable version tags, Consequences, Context, Decision
@@ -237,38 +222,18 @@ Nodes (4): ADR-004: Signed, notarized DMGs from immutable version tags, Conseque
 Cohesion: 0.40
 Nodes (5): Cut a release, Local packaging, One-time GitHub setup, Releasing Brainarium, What is shipped
 
-### Community 59 - "vault.ts"
-Cohesion: 0.22
-Nodes (10): BrainariumApi, ChooseVaultResult, Window, BrainariumAppInfo, DocumentKind, RecentVault, VaultDocument, VaultDocumentContent (+2 more)
-
-### Community 60 - "vault-scanner.ts"
-Cohesion: 0.21
-Nodes (6): documentKind(), IGNORED_DIRECTORY_NAMES, isIgnoredDirectory(), isSupportedVaultDocument(), temporaryRoots, VaultTreeDirectory
-
-### Community 61 - "index.tsx"
-Cohesion: 0.21
-Nodes (9): relativePath(), App(), defaultAppInfo, findPositions(), graphScope(), MarkdownReading(), renderInline(), root (+1 more)
-
-### Community 62 - "VaultSnapshot"
-Cohesion: 0.25
-Nodes (7): executeFile, IndexerOutput, RustIndexerService, snapshot, validateGraph(), VaultLinkGraph, VaultSnapshot
-
-### Community 63 - "vault-reader.ts"
-Cohesion: 0.44
-Nodes (6): isPathInside(), readVaultDocument(), resolveDocument(), saveVaultDocument(), temporaryRoots, versionFor()
-
 ## Knowledge Gaps
-- **303 isolated node(s):** `brainarium-mcp-launcher`, `{ MakerDeb }`, `{ MakerDMG }`, `{ MakerRpm }`, `{ MakerSquirrel }` (+298 more)
+- **309 isolated node(s):** `brainarium-mcp-launcher`, `{ MakerDeb }`, `{ MakerDMG }`, `{ MakerRpm }`, `{ MakerSquirrel }` (+304 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **27 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SigmaGraphPreview()` connect `GitHub Actions plan` to `index.tsx`?**
-  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Why does `SigmaGraphPreview()` connect `GitHub Actions plan` to `csv-preview.tsx`?**
+  _High betweenness centrality (0.051) - this node is a cross-community bridge._
 - **What connects `brainarium-mcp-launcher`, `{ MakerDeb }`, `{ MakerDMG }` to the rest of the system?**
-  _303 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _309 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Brainarium research notes` be split into smaller, more focused modules?**
   _Cohesion score 0.07692307692307693 - nodes in this community are weakly interconnected._
 - **Should `Brainarium implementation plan` be split into smaller, more focused modules?**
