@@ -23,7 +23,8 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ### Fixed
 
-- None.
+- Keep the active vault, file, and reading position after reload or relaunch.
+- Keep JSON, source code, CSV, preview, and comparison surfaces readable in dark theme.
 
 ### Security
 

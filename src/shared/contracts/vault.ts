@@ -107,3 +107,18 @@ export type BrainariumAppInfo = {
   name: string;
   version: string;
 };
+
+/**
+ * Renderer-owned UI state that is safe to persist locally for the active
+ * vault. Paths are always vault-relative; the main process owns the vault
+ * root and rejects paths that are not in its scanned document list.
+ */
+export type VaultSessionState = {
+  activeDocumentPath?: string;
+  scrollPositions: Record<string, number>;
+};
+
+/** The restored session never exposes the on-disk path selected previously. */
+export type RestoredVaultSession = VaultSessionState & {
+  snapshot?: VaultSnapshot;
+};

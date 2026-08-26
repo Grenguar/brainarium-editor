@@ -5,11 +5,13 @@ import type {
   DocumentSaveInput,
   DocumentSaveResult,
   RecentVault,
+  RestoredVaultSession,
   VaultDocumentContent,
   VaultImageContent,
   VaultImageRequest,
   VaultLinkGraph,
   VaultSearchResult,
+  VaultSessionState,
   VaultSnapshot,
 } from "../shared/contracts/vault";
 
@@ -36,6 +38,10 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:listRecent"),
   openRecentVault: (id: string): Promise<VaultSnapshot> =>
     ipcRenderer.invoke("vault:openRecent", id),
+  restoreVaultSession: (): Promise<RestoredVaultSession> =>
+    ipcRenderer.invoke("vault:restoreSession"),
+  saveVaultSession: (session: VaultSessionState): Promise<void> =>
+    ipcRenderer.invoke("vault:saveSession", session),
   onVaultChanged: (
     callback: (snapshot: VaultSnapshot) => void,
   ): (() => void) => {
@@ -67,6 +73,8 @@ export type BrainariumApi = {
   buildVaultLinkGraph(): Promise<VaultLinkGraph>;
   listRecentVaults(): Promise<RecentVault[]>;
   openRecentVault(id: string): Promise<VaultSnapshot>;
+  restoreVaultSession(): Promise<RestoredVaultSession>;
+  saveVaultSession(session: VaultSessionState): Promise<void>;
   onVaultChanged(callback: (snapshot: VaultSnapshot) => void): () => void;
   onVaultGraphChanged(callback: (graph: VaultLinkGraph) => void): () => void;
   openExternalLink(target: string): Promise<void>;

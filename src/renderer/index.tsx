@@ -10,6 +10,7 @@ import type {
   VaultDocumentContent,
   VaultLinkGraph,
   VaultSearchResult,
+  VaultSessionState,
   VaultSnapshot,
   VaultTreeNode,
 } from "../shared/contracts/vault";
@@ -389,6 +390,10 @@ const App = (): React.JSX.Element => {
   const [lastSavedAt, setLastSavedAt] = useState<Date>();
   const [error, setError] = useState<string>();
   const editorRef = useRef<MarkdownEditorHandle>(null);
+  const vaultSearchInputRef = useRef<HTMLInputElement>(null);
+  const documentWorkspaceRef = useRef<HTMLElement>(null);
+  const scrollPositionsRef = useRef<Record<string, number>>({});
+  const sessionSaveTimerRef = useRef<number | undefined>(undefined);
   const documentRef = useRef<VaultDocumentContent | undefined>(undefined);
   const editorTextRef = useRef("");
   const sessionRef = useRef(session);
@@ -411,6 +416,24 @@ const App = (): React.JSX.Element => {
     setRecentVaults(await window.brainarium.listRecentVaults());
   };
 
+  const saveVaultSession = (): void => {
+    const activeDocumentPath = documentRef.current?.relativePath;
+    if (!snapshot) return;
+    const state: VaultSessionState = {
+      activeDocumentPath,
+      scrollPositions: { ...scrollPositionsRef.current },
+    };
+    void window.brainarium.saveVaultSession(state).catch(() => {
+      // Session restoration is a convenience; a failed local state write must
+      // never interrupt reading or editing the vault.
+    });
+  };
+
+  const scheduleVaultSessionSave = (): void => {
+    window.clearTimeout(sessionSaveTimerRef.current);
+    sessionSaveTimerRef.current = window.setTimeout(saveVaultSession, 180);
+  };
+
   useEffect(() => {
     void refreshRecents();
   }, []);
@@ -418,6 +441,8 @@ const App = (): React.JSX.Element => {
   useEffect(() => {
     void window.brainarium.appInfo().then(setAppInfo);
   }, []);
+
+  useEffect(() => () => window.clearTimeout(sessionSaveTimerRef.current), []);
 
   useEffect(() => {
     documentRef.current = document;
@@ -566,6 +591,12 @@ const App = (): React.JSX.Element => {
     }
     setError(undefined);
     try {
+      const currentDocument = documentRef.current;
+      const workspace = documentWorkspaceRef.current;
+      if (currentDocument && workspace) {
+        scrollPositionsRef.current[currentDocument.relativePath] =
+          workspace.scrollTop;
+      }
       const nextDocument = await window.brainarium.readDocument(relativePath);
       dispatchSession({ document: nextDocument, type: "open" });
       setLastSavedAt(undefined);
@@ -577,12 +608,40 @@ const App = (): React.JSX.Element => {
       setIsConfirmingReload(false);
       if (navigation === "record") recordHistory(relativePath);
       if (fragment) scrollToFragment(fragment);
+      scheduleVaultSessionSave();
     } catch {
       setError(
         "Brainarium could not read that file. It may have changed outside the vault.",
       );
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.brainarium.restoreVaultSession().then(async (restored) => {
+      if (cancelled || !restored.snapshot) return;
+      scrollPositionsRef.current = restored.scrollPositions;
+      setSnapshot(restored.snapshot);
+      if (restored.activeDocumentPath) {
+        await readDocument(restored.activeDocumentPath, undefined, "restore");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const relativePath = document?.relativePath;
+    if (!relativePath) return;
+    const restoreScroll = window.requestAnimationFrame(() => {
+      const workspace = documentWorkspaceRef.current;
+      if (!workspace) return;
+      workspace.scrollTop = scrollPositionsRef.current[relativePath] ?? 0;
+    });
+    scheduleVaultSessionSave();
+    return () => window.cancelAnimationFrame(restoreScroll);
+  }, [document?.relativePath]);
 
   const navigateHistory = (direction: -1 | 1): void => {
     const nextIndex = historyIndex + direction;
@@ -730,6 +789,22 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  const copyPlainSelection = async (text: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      setError("Brainarium could not copy the selected text. Try again.");
+    }
+  };
+
+  useEffect(() => {
+    if (!isVaultSearchOpen) return;
+    const focusSearch = window.requestAnimationFrame(() => {
+      vaultSearchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(focusSearch);
+  }, [isVaultSearchOpen]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       const key = event.key.toLocaleLowerCase();
@@ -761,6 +836,17 @@ const App = (): React.JSX.Element => {
       }
       if (!usesPrimaryModifier(currentShortcutPlatform, event)) return;
 
+      if (key === "r") {
+        const activeDocument = documentRef.current;
+        const workspace = documentWorkspaceRef.current;
+        if (activeDocument && workspace) {
+          scrollPositionsRef.current[activeDocument.relativePath] =
+            workspace.scrollTop;
+        }
+        saveVaultSession();
+        return;
+      }
+
       if (key === "p" && !event.shiftKey) {
         event.preventDefault();
         setIsQuickOpen(true);
@@ -775,6 +861,22 @@ const App = (): React.JSX.Element => {
       } else if (key === "c" && event.shiftKey && document) {
         event.preventDefault();
         void copyDocumentContent();
+      } else if (key === "c" && document) {
+        const target = event.target;
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          (target instanceof HTMLElement && target.isContentEditable)
+        ) {
+          return;
+        }
+        event.preventDefault();
+        const selectedText = window.getSelection()?.toString();
+        if (selectedText) {
+          void copyPlainSelection(selectedText);
+        } else {
+          void copyDocumentContent();
+        }
       } else if (key === "e" && document?.kind === "markdown") {
         event.preventDefault();
         setViewMode((current) =>
@@ -809,7 +911,7 @@ const App = (): React.JSX.Element => {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [document?.kind, history, historyIndex]);
+  }, [document, history, historyIndex, snapshot]);
 
   const moveFind = (direction: 1 | -1): void => {
     if (findPositionsInDocument.length === 0) return;
@@ -962,8 +1064,8 @@ const App = (): React.JSX.Element => {
                 >
                   <input
                     aria-label="Search this vault"
-                    autoFocus
                     placeholder="Search all files"
+                    ref={vaultSearchInputRef}
                     type="search"
                     value={vaultSearchQuery}
                     onChange={(event) =>
@@ -1094,7 +1196,18 @@ const App = (): React.JSX.Element => {
             )}
           </div>
         </aside>
-        <section className="document-workspace" aria-label="Document workspace">
+        <section
+          className="document-workspace"
+          aria-label="Document workspace"
+          onScroll={(event) => {
+            const activeDocument = documentRef.current;
+            if (!activeDocument) return;
+            scrollPositionsRef.current[activeDocument.relativePath] =
+              event.currentTarget.scrollTop;
+            scheduleVaultSessionSave();
+          }}
+          ref={documentWorkspaceRef}
+        >
           <nav
             className="workspace-command-bar"
             aria-label="Workspace controls"

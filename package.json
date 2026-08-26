@@ -1,7 +1,7 @@
 {
   "name": "brainarium",
   "productName": "Brainarium",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "packageManager": "pnpm@11.24.0",
   "engines": {
     "node": ">=24.0.0 <25",
@@ -20,12 +20,13 @@
     "package": "pnpm run build:rust && electron-forge package",
     "make": "pnpm run build:rust && electron-forge make",
     "make:local-update": "pnpm version patch --no-git-tag-version && pnpm run make",
-    "format": "prettier --write package.json pnpm-workspace.yaml forge.config.js webpack.rules.js webpack.main.config.js webpack.renderer.config.js tsconfig.json eslint.config.mjs src .github/workflows",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml forge.config.js webpack.rules.js webpack.main.config.js webpack.renderer.config.js tsconfig.json eslint.config.mjs src .github/workflows",
+    "format": "prettier --write package.json pnpm-workspace.yaml forge.config.js webpack.rules.js webpack.main.config.js webpack.renderer.config.js tsconfig.json eslint.config.mjs playwright.config.ts vitest.config.mts src tests .github/workflows",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml forge.config.js webpack.rules.js webpack.main.config.js webpack.renderer.config.js tsconfig.json eslint.config.mjs playwright.config.ts vitest.config.mts src tests .github/workflows",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "pnpm run package && playwright test",
     "check:rust": "cargo fmt --manifest-path rust/Cargo.toml --check && cargo clippy --manifest-path rust/Cargo.toml -- -D warnings && cargo test --manifest-path rust/Cargo.toml",
     "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run check:rust && pnpm run build",
     "build": "pnpm run package"
@@ -39,6 +40,7 @@
     "@electron-forge/maker-squirrel": "7.11.2",
     "@electron-forge/maker-zip": "7.11.2",
     "@electron-forge/plugin-webpack": "7.11.2",
+    "@playwright/test": "1.62.1",
     "@eslint/js": "10.0.1",
     "@types/electron-squirrel-startup": "1.0.2",
     "@types/mdast": "4.0.4",

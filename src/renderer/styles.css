@@ -228,8 +228,7 @@ h1 {
 }
 
 .vault-search-controls {
-  align-items: center;
-  display: flex;
+  display: grid;
   gap: 0.4rem;
   margin-top: 1.25rem;
 }
@@ -247,9 +246,9 @@ h1 {
 }
 
 .vault-search-form {
-  display: flex;
-  flex: 1;
+  display: grid;
   gap: 0.3rem;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .vault-search-form input {
@@ -1259,6 +1258,53 @@ h1 {
 .vault-shell .markdown-reading .markdown-external-link {
   background: var(--br-surface-raised);
   color: var(--br-accent-strong);
+}
+
+/* File readers began as light-only MVP components. Keep every source and
+ * tabular surface on the semantic palette so dark mode cannot pair light
+ * paper with inherited light text. */
+.vault-shell
+  :is(
+    .document-source,
+    .reading-code,
+    .document-preview pre,
+    .document-comparison-pane pre
+  ) {
+  background: var(--br-surface);
+  border-color: var(--br-accent);
+  color: var(--br-code);
+}
+
+.vault-shell
+  :is(
+    .document-preview,
+    .document-toolbar,
+    .reading-table-wrap,
+    .csv-preview-scroll,
+    .document-comparison-pane
+  ) {
+  border-color: var(--br-border);
+}
+
+.vault-shell :is(.markdown-reading th, .csv-preview-table th) {
+  background: var(--br-surface-raised);
+  border-color: var(--br-border);
+  color: var(--br-text);
+}
+
+.vault-shell
+  :is(.markdown-reading td, .csv-preview-table td, .csv-preview-scroll) {
+  background: var(--br-surface);
+  border-color: var(--br-border);
+  color: var(--br-text);
+}
+
+.vault-shell :is(.csv-empty-cell, .csv-preview-empty, .csv-preview-metadata) {
+  color: var(--br-muted);
+}
+
+.vault-shell .csv-preview-metadata {
+  border-color: var(--br-accent);
 }
 
 .sidebar-toggle {

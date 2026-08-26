@@ -15,6 +15,7 @@ import squirrelStartup from "electron-squirrel-startup";
 import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
+import { VaultSessionStore } from "./vault/vault-session-state";
 import { searchVault } from "./vault/vault-search";
 import { readVaultImage } from "./vault/vault-image-reader";
 import { scanVault } from "./vault/vault-scanner";
@@ -22,7 +23,9 @@ import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
 import type {
   DocumentSaveInput,
+  RestoredVaultSession,
   VaultImageRequest,
+  VaultSessionState,
 } from "../shared/contracts/vault";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
@@ -32,6 +35,7 @@ let activeVault: Awaited<ReturnType<typeof scanVault>> | undefined;
 let mainWindow: BrowserWindow | undefined;
 let vaultWatcher: VaultWatcher | undefined;
 let graphRebuildGeneration = 0;
+let vaultSessionStore: VaultSessionStore | undefined;
 
 const appDescription = "A local-first editor for the files you already trust.";
 
@@ -49,6 +53,13 @@ if (squirrelStartup) {
 
 const recentVaults = (): RecentVaultStore =>
   new RecentVaultStore(app.getPath("userData") + "/recent-vaults.json");
+
+const vaultSessions = (): VaultSessionStore => {
+  vaultSessionStore ??= new VaultSessionStore(
+    path.join(app.getPath("userData"), "vault-session.json"),
+  );
+  return vaultSessionStore;
+};
 
 const indexer = (): RustIndexerService =>
   new RustIndexerService(
@@ -114,6 +125,7 @@ async function openVault(
 ): Promise<Awaited<ReturnType<typeof scanVault>>> {
   const snapshot = await scanVault(vaultPath);
   await recentVaults().remember(snapshot.rootPath);
+  await vaultSessions().rememberVault(snapshot.rootPath);
   activeVault = snapshot;
   vaultWatcher?.start(snapshot);
   return snapshot;
@@ -160,6 +172,59 @@ ipcMain.handle("vault:choose", async (): Promise<unknown> => {
 });
 
 ipcMain.handle("app:info", (): ReturnType<typeof appInfo> => appInfo());
+
+ipcMain.handle(
+  "vault:restoreSession",
+  async (): Promise<RestoredVaultSession> => {
+    const stored = await vaultSessions().restore();
+    if (!stored.vaultPath) return { scrollPositions: {} };
+
+    try {
+      const snapshot = await openVault(stored.vaultPath);
+      const documentPaths = new Set(
+        snapshot.documents.map((document) => document.relativePath),
+      );
+      const scrollPositions = Object.fromEntries(
+        Object.entries(stored.scrollPositions).filter(([relativePath]) =>
+          documentPaths.has(relativePath),
+        ),
+      );
+      return {
+        activeDocumentPath: documentPaths.has(stored.activeDocumentPath ?? "")
+          ? stored.activeDocumentPath
+          : undefined,
+        scrollPositions,
+        snapshot,
+      };
+    } catch {
+      // A moved, deleted, or no-longer-readable folder must not block launch.
+      await vaultSessions().clear();
+      return { scrollPositions: {} };
+    }
+  },
+);
+
+ipcMain.handle(
+  "vault:saveSession",
+  async (_event, session: unknown): Promise<void> => {
+    if (!activeVault || !isVaultSessionState(session)) {
+      throw new Error("No valid vault session is available.");
+    }
+    const documentPaths = new Set(
+      activeVault.documents.map((document) => document.relativePath),
+    );
+    if (
+      (session.activeDocumentPath &&
+        !documentPaths.has(session.activeDocumentPath)) ||
+      Object.keys(session.scrollPositions).some(
+        (relativePath) => !documentPaths.has(relativePath),
+      )
+    ) {
+      throw new Error("Vault session paths must be active vault documents.");
+    }
+    await vaultSessions().rememberSession(activeVault.rootPath, session);
+  },
+);
 
 ipcMain.handle("vault:listRecent", async (): Promise<unknown> =>
   recentVaults().list(),
@@ -309,5 +374,28 @@ function isVaultImageRequest(value: unknown): value is VaultImageRequest {
   const request = value as Record<string, unknown>;
   return ["assetPath", "sourceRelativePath"].every(
     (key) => typeof request[key] === "string",
+  );
+}
+
+function isVaultSessionState(value: unknown): value is VaultSessionState {
+  if (!value || typeof value !== "object") return false;
+  const session = value as Record<string, unknown>;
+  if (
+    (session.activeDocumentPath !== undefined &&
+      typeof session.activeDocumentPath !== "string") ||
+    !session.scrollPositions ||
+    typeof session.scrollPositions !== "object" ||
+    Array.isArray(session.scrollPositions)
+  ) {
+    return false;
+  }
+  return Object.entries(
+    session.scrollPositions as Record<string, unknown>,
+  ).every(
+    ([relativePath, offset]) =>
+      relativePath.length > 0 &&
+      typeof offset === "number" &&
+      Number.isFinite(offset) &&
+      offset >= 0,
   );
 }
