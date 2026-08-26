@@ -4,7 +4,8 @@
 It keeps the folder and its Markdown files authoritative: there is no account,
 cloud sync, telemetry, or proprietary database to adopt.
 
-**Current version:** `0.1.3`  
+**Current version:** `0.1.3`
+
 **Status:** macOS-first; buildable locally for macOS, Windows, and Linux. There
 is not yet an official downloadable release because the protected macOS signing
 and notarization environment is still being configured.
