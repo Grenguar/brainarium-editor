@@ -6,6 +6,7 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ### Added
 
+- Cross-platform keyboard shortcuts for vault search, Find in file, and Copy content.
 - Planning documentation, quality gates, tag taxonomy, and future GitHub Actions plan.
 - Local macOS DMG packaging and a signed, notarized GitHub Release pipeline for version tags.
 - Native Windows Setup and Debian/RPM Linux release artifacts with published checksums.
@@ -17,6 +18,7 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ### Changed
 
+- Refresh the project README with human and agent quick starts, MCP safety guidance, and the issue-backed roadmap.
 - Product renamed to Brainarium.
 
 ### Fixed

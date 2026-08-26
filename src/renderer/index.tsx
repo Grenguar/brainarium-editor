@@ -26,8 +26,16 @@ import {
   type MarkdownEditorMode,
 } from "./editor/markdown-editor";
 import { MarkdownReading } from "./markdown/markdown-reading";
+import {
+  shortcutLabels,
+  shortcutPlatform,
+  usesPrimaryModifier,
+} from "./shortcuts";
 
 import "./styles.css";
+
+const currentShortcutPlatform = shortcutPlatform(navigator.userAgent);
+const platformShortcuts = shortcutLabels(currentShortcutPlatform);
 
 const TreeNode = ({
   activePath,
@@ -584,62 +592,6 @@ const App = (): React.JSX.Element => {
     void readDocument(target.relativePath, undefined, "restore");
   };
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      const modifier = event.metaKey || event.ctrlKey;
-      const key = event.key.toLocaleLowerCase();
-      if (event.key === "Escape") {
-        setIsQuickOpen(false);
-        setIsFindOpen(false);
-        setIsConnectionsOpen(false);
-        return;
-      }
-      if (!modifier) return;
-      if (key === "p") {
-        event.preventDefault();
-        setIsQuickOpen(true);
-      } else if (key === "e" && document?.kind === "markdown") {
-        event.preventDefault();
-        setViewMode((current) =>
-          current === "preview" ? "editor" : "preview",
-        );
-      } else if (
-        key === "m" &&
-        event.shiftKey &&
-        document?.kind === "markdown"
-      ) {
-        event.preventDefault();
-        setViewMode("editor");
-        setEditorMode((current) =>
-          current === "assisted" ? "source" : "assisted",
-        );
-      } else if (key === "l" && event.shiftKey) {
-        event.preventDefault();
-        setIsSidebarCollapsed((current) => !current);
-      } else if (key === "g" && event.shiftKey) {
-        event.preventDefault();
-        setWorkspaceView("connections");
-      } else if (key === "g") {
-        event.preventDefault();
-        setWorkspaceView("graph");
-        void window.brainarium
-          .buildVaultLinkGraph()
-          .then(setLinkGraph)
-          .catch(() =>
-            setError("Brainarium could not build the vault link graph."),
-          );
-      } else if (event.altKey && event.key === "ArrowLeft") {
-        event.preventDefault();
-        navigateHistory(-1);
-      } else if (event.altKey && event.key === "ArrowRight") {
-        event.preventDefault();
-        navigateHistory(1);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [document?.kind, history, historyIndex]);
-
   const saveDocument = async (): Promise<void> => {
     const current = sessionRef.current;
     if (
@@ -778,6 +730,87 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const key = event.key.toLocaleLowerCase();
+      if (event.key === "Escape") {
+        setIsQuickOpen(false);
+        setIsFindOpen(false);
+        setIsConnectionsOpen(false);
+        return;
+      }
+      if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.key === "ArrowLeft"
+      ) {
+        event.preventDefault();
+        navigateHistory(-1);
+        return;
+      }
+      if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.key === "ArrowRight"
+      ) {
+        event.preventDefault();
+        navigateHistory(1);
+        return;
+      }
+      if (!usesPrimaryModifier(currentShortcutPlatform, event)) return;
+
+      if (key === "p" && !event.shiftKey) {
+        event.preventDefault();
+        setIsQuickOpen(true);
+      } else if (key === "f" && event.shiftKey) {
+        event.preventDefault();
+        setIsVaultSearchOpen(true);
+        setVaultSearchResults([]);
+      } else if (key === "f" && document?.kind === "markdown") {
+        event.preventDefault();
+        setIsFindOpen(true);
+        setFindIndex(-1);
+      } else if (key === "c" && event.shiftKey && document) {
+        event.preventDefault();
+        void copyDocumentContent();
+      } else if (key === "e" && document?.kind === "markdown") {
+        event.preventDefault();
+        setViewMode((current) =>
+          current === "preview" ? "editor" : "preview",
+        );
+      } else if (
+        key === "m" &&
+        event.shiftKey &&
+        document?.kind === "markdown"
+      ) {
+        event.preventDefault();
+        setViewMode("editor");
+        setEditorMode((current) =>
+          current === "assisted" ? "source" : "assisted",
+        );
+      } else if (key === "l" && event.shiftKey) {
+        event.preventDefault();
+        setIsSidebarCollapsed((current) => !current);
+      } else if (key === "g" && event.shiftKey) {
+        event.preventDefault();
+        setWorkspaceView("connections");
+      } else if (key === "g") {
+        event.preventDefault();
+        setWorkspaceView("graph");
+        void window.brainarium
+          .buildVaultLinkGraph()
+          .then(setLinkGraph)
+          .catch(() =>
+            setError("Brainarium could not build the vault link graph."),
+          );
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [document?.kind, history, historyIndex]);
+
   const moveFind = (direction: 1 | -1): void => {
     if (findPositionsInDocument.length === 0) return;
     const nextIndex =
@@ -908,7 +941,7 @@ const App = (): React.JSX.Element => {
             <div className="vault-search-controls">
               <button
                 className="vault-search-trigger"
-                title="Search this vault"
+                title={`Search this vault (${platformShortcuts.searchVault})`}
                 type="button"
                 onClick={() => {
                   setIsVaultSearchOpen((current) => !current);
@@ -917,6 +950,7 @@ const App = (): React.JSX.Element => {
               >
                 <Icon name="search" />
                 Search
+                <kbd>{platformShortcuts.searchVault}</kbd>
               </button>
               {isVaultSearchOpen && (
                 <form
@@ -942,18 +976,18 @@ const App = (): React.JSX.Element => {
             </div>
             <div className="sidebar-commands" aria-label="Vault commands">
               <button
-                title="Quick open (Cmd+P)"
+                title={`Quick open (${platformShortcuts.quickOpen})`}
                 type="button"
                 onClick={() => setIsQuickOpen(true)}
               >
                 <Icon name="search" />
                 Quick open
-                <kbd>⌘P</kbd>
+                <kbd>{platformShortcuts.quickOpen}</kbd>
               </button>
               <button
                 aria-label="Back"
                 disabled={historyIndex <= 0}
-                title="Back (Option+Left)"
+                title={`Back (${platformShortcuts.back})`}
                 type="button"
                 onClick={() => navigateHistory(-1)}
               >
@@ -962,7 +996,7 @@ const App = (): React.JSX.Element => {
               <button
                 aria-label="Forward"
                 disabled={historyIndex >= history.length - 1}
-                title="Forward (Option+Right)"
+                title={`Forward (${platformShortcuts.forward})`}
                 type="button"
                 onClick={() => navigateHistory(1)}
               >
@@ -1000,25 +1034,25 @@ const App = (): React.JSX.Element => {
               <p className="section-label">LIBRARY</p>
               <button
                 aria-current={workspaceView === "graph" ? "page" : undefined}
-                title="Open global graph (Cmd+G)"
+                title={`Open global graph (${platformShortcuts.globalGraph})`}
                 type="button"
                 onClick={() => void openLinkGraph()}
               >
                 <Icon name="graph" />
                 Graph
-                <kbd>⌘G</kbd>
+                <kbd>{platformShortcuts.globalGraph}</kbd>
               </button>
               <button
                 aria-current={
                   workspaceView === "connections" ? "page" : undefined
                 }
-                title="Open vault connections (Cmd+Shift+G)"
+                title={`Open vault connections (${platformShortcuts.connections})`}
                 type="button"
                 onClick={() => setWorkspaceView("connections")}
               >
                 <Icon name="connections" />
                 Connections
-                <kbd>⇧⌘G</kbd>
+                <kbd>{platformShortcuts.connections}</kbd>
               </button>
               <button
                 className="library-vault-switch"
@@ -1068,16 +1102,16 @@ const App = (): React.JSX.Element => {
             <button
               type="button"
               onClick={() => setIsQuickOpen(true)}
-              title="Quick open (Cmd+P)"
+              title={`Quick open (${platformShortcuts.quickOpen})`}
             >
               Quick open
-              <kbd>⌘P</kbd>
+              <kbd>{platformShortcuts.quickOpen}</kbd>
             </button>
             <button
               type="button"
               disabled={historyIndex <= 0}
               onClick={() => navigateHistory(-1)}
-              title="Back (Option+Left)"
+              title={`Back (${platformShortcuts.back})`}
             >
               Back
             </button>
@@ -1085,7 +1119,7 @@ const App = (): React.JSX.Element => {
               type="button"
               disabled={historyIndex >= history.length - 1}
               onClick={() => navigateHistory(1)}
-              title="Forward (Option+Right)"
+              title={`Forward (${platformShortcuts.forward})`}
             >
               Forward
             </button>
@@ -1497,11 +1531,15 @@ const App = (): React.JSX.Element => {
                   {document.kind === "markdown" && (
                     <button
                       aria-expanded={isFindOpen}
-                      title="Find in file — keeps Reading preview open"
+                      title={`Find in file (${platformShortcuts.findInFile}) — keeps Reading preview open`}
                       type="button"
-                      onClick={() => setIsFindOpen(true)}
+                      onClick={() => {
+                        setIsFindOpen(true);
+                        setFindIndex(-1);
+                      }}
                     >
                       Find
+                      <kbd>{platformShortcuts.findInFile}</kbd>
                     </button>
                   )}
                   {document.kind === "markdown" && (
@@ -1513,7 +1551,7 @@ const App = (): React.JSX.Element => {
                       <button
                         aria-pressed={viewMode === "preview"}
                         className={viewMode === "preview" ? "active" : ""}
-                        title="Read (Cmd+E)"
+                        title={`Read (${platformShortcuts.toggleReadEdit})`}
                         type="button"
                         onClick={() => setViewMode("preview")}
                       >
@@ -1522,7 +1560,7 @@ const App = (): React.JSX.Element => {
                       <button
                         aria-pressed={viewMode === "editor"}
                         className={viewMode === "editor" ? "active" : ""}
-                        title="Edit (Cmd+E)"
+                        title={`Edit (${platformShortcuts.toggleReadEdit})`}
                         type="button"
                         onClick={() => setViewMode("editor")}
                       >
@@ -1554,11 +1592,14 @@ const App = (): React.JSX.Element => {
                     </button>
                   )}
                   <button
+                    aria-label={`Copy document content (${platformShortcuts.copyContent})`}
+                    title={`Copy document content (${platformShortcuts.copyContent})`}
                     type="button"
                     onClick={() => void copyDocumentContent()}
                     disabled={isCopying}
                   >
                     {copied ? "Copied!" : isCopying ? "Copying…" : "Copy"}
+                    <kbd>{platformShortcuts.copyContent}</kbd>
                   </button>
                 </div>
               </header>

@@ -1,51 +1,83 @@
-# Brainarium
+<p align="center">
+  <img src="assets/icon.svg" width="128" alt="Brainarium">
+</p>
 
-**Brainarium** is a local-first desktop app for folder-backed knowledge vaults.
-It keeps the folder and its Markdown files authoritative: there is no account,
-cloud sync, telemetry, or proprietary database to adopt.
+<h1 align="center">Brainarium</h1>
 
-**Current version:** `0.1.3`
+<h3 align="center">
+  Your local Markdown vault, with safe tools for you and your AI.
+</h3>
 
-**Status:** macOS-first; buildable locally for macOS, Windows, and Linux. There
-is not yet an official downloadable release because the protected macOS signing
-and notarization environment is still being configured.
+<div align="center">
+  <a href="https://github.com/Grenguar/brainarium-editor/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Grenguar/brainarium-editor/ci.yml?branch=main&style=flat-square&label=quality" alt="quality"></a>
+  <a href="https://github.com/Grenguar/brainarium-editor"><img src="https://img.shields.io/badge/version-0.1.4-24312e?style=flat-square" alt="version 0.1.4"></a>
+  <a href="#model-context-protocol-mcp"><img src="https://img.shields.io/badge/MCP-local%20stdio-24312e?style=flat-square" alt="local stdio MCP"></a>
+  <a href="https://github.com/Grenguar/brainarium-editor/issues"><img src="https://img.shields.io/github/issues/Grenguar/brainarium-editor?style=flat-square&label=roadmap" alt="open roadmap issues"></a>
+</div>
 
-## What works today
+<br>
 
-- Open any local vault and browse a safe, fixed sidebar file tree. Brainarium
-  supports Markdown, CSV, text, JSON, XML, and HTML; hidden files, symlinks,
-  and its derived `.brainarium` cache stay out of the vault UI.
-- Search the vault, use **Quick open** (`Cmd+P`), reopen recent vaults, and
-  switch between light and dark themes.
-- Read Markdown in a rendered, sanitized CommonMark/GFM-style preview with
-  local links, deterministic wiki-links, local image display, and in-preview
-  Find that highlights and cycles through matches without leaving Reading mode.
-- Edit Markdown in assisted or raw-source mode, save atomically with version
-  checks, and see when the document was last saved. CSV and the other supported
-  non-Markdown formats remain read-only previews so their source is preserved.
-- Build a deterministic, source-derived vault graph, filter it, explore a local
-  graph, and inspect a note's outgoing links and backlinks. The rebuildable
-  cache lives only at `.brainarium/graph-v1.json` inside the chosen vault.
-- Keep privileged work in the Electron main process: the renderer is sandboxed,
-  filesystem IPC is typed and validated, external links are constrained, and
-  rendered Markdown is inert.
+Brainarium is a **local-first desktop app** for folder-backed knowledge vaults.
+Open the Markdown folder you already trust; Brainarium does not import it, move
+it, or convert it into a proprietary format.
 
-## Install or build the app
+It gives you a focused place to read, edit, search, and connect your notes—then
+offers a deliberately narrow [Model Context Protocol (MCP)](#model-context-protocol-mcp)
+server so an AI client can help without becoming a broad filesystem agent.
 
-### Official downloads
+> [!IMPORTANT]
+> **v0.1.4 is a self-build release.** There is no signed public download yet:
+> Apple signing and notarization are tracked in [#6](https://github.com/Grenguar/brainarium-editor/issues/6).
+> You can build a native installer on your own platform today with
+> [Quick start](#quick-start).
 
-No official release artifact is published yet. The remaining prerequisite is
-[Apple signing and notarization setup](https://github.com/Grenguar/brainarium-editor/issues/6).
-Until then, build Brainarium from this checkout on the platform where you will
-run it.
+## Why Brainarium
 
-### Prerequisites
+| For your vault                                                                                                              | For your agent                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Your files stay yours.** Markdown remains the source of truth in an ordinary local folder.                                | **One explicit vault.** The MCP server starts with one canonicalized root, not access to your home directory.                                    |
+| **A calm reading and editing surface.** Rendered Markdown, assisted/raw source editing, Find, Quick open, and local themes. | **Safe, useful tools.** Read files, inspect the source-derived graph, and only opt into writes when you mean to.                                 |
+| **Connections without cloud magic.** Backlinks, outgoing links, and local/global graphs are rebuilt from Markdown source.   | **Conflict-aware writes.** Replacements require the SHA-256 version returned by a read, so stale context cannot silently overwrite a newer file. |
 
-- Node `24.19.0` (the repository's [.nvmrc](.nvmrc) selects it)
-- Corepack and pnpm `11.24.0`
-- Rust stable, for the local link-graph sidecar
+## What you can do today
 
-Clone the repository, then install and run it:
+- Browse a fixed sidebar tree and open Markdown, CSV, plain text, JSON, XML,
+  and HTML from a selected vault.
+- Search across the vault, jump with **Quick open**, find text without leaving
+  Reading mode, and revisit recent vaults.
+- Read sanitized CommonMark/GFM-style Markdown with deterministic wiki-links
+  and safe local images.
+- Edit Markdown in assisted or raw-source mode; saves are atomic and version
+  checked. Non-Markdown formats remain read-only so their source stays exact.
+- Build and filter a global or local note graph; inspect outgoing links and
+  backlinks for the current note.
+- Use native-feeling, cross-platform shortcuts: <kbd>⌘P</kbd>/<kbd>Ctrl+P</kbd>
+  for Quick open, <kbd>⌘F</kbd>/<kbd>Ctrl+F</kbd> for Find, and
+  <kbd>⇧⌘F</kbd>/<kbd>Ctrl+Shift+F</kbd> for vault search.
+
+## How it fits together
+
+```text
+Your vault (ordinary local files)
+        │
+        ├── Brainarium desktop app
+        │   ├── sandboxed renderer
+        │   ├── typed, validated Electron IPC
+        │   └── rebuildable Rust Markdown link graph
+        │
+        └── Optional Brainarium MCP server
+            └── one configured vault · read-only by default
+```
+
+The app and MCP server are independent. The MCP can serve your vault while the
+Electron app is closed; both preserve Markdown as the canonical content.
+
+## Quick start
+
+### Run the desktop app
+
+**Prerequisites:** Node `24.19.0` ([.nvmrc](.nvmrc)), Corepack/pnpm `11.24.0`,
+and Rust stable.
 
 ```sh
 git clone git@github.com:Grenguar/brainarium-editor.git brainarium
@@ -56,12 +88,12 @@ pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-`source "$HOME/.nvm/nvm.sh"` makes this work in non-interactive shells too;
-in a terminal where NVM is already loaded, `nvm use` is sufficient.
+The explicit `source` works in non-interactive shells. In a normal terminal
+where NVM is already loaded, `nvm use` is enough.
 
-### Create a local installer
+### Make an installer for your platform
 
-Build on the operating system you are targeting:
+Build on the OS where you plan to run Brainarium:
 
 ```sh
 source "$HOME/.nvm/nvm.sh" && nvm use
@@ -70,42 +102,21 @@ pnpm install --frozen-lockfile
 pnpm run make
 ```
 
-Artifacts are written below `out/make/`.
+| Platform                       | Local output                       | Install                                                                                                    |
+| ------------------------------ | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| macOS                          | Unsigned `.dmg` and `.zip`         | Open the DMG and drag **Brainarium** to Applications. A self-built app may need Control-click → Open once. |
+| Windows x64                    | Squirrel Setup `.exe` and `.nupkg` | Run the generated Setup executable on Windows.                                                             |
+| Debian/Ubuntu x64              | `.deb`                             | Install the package using your distribution's installer.                                                   |
+| Fedora/RHEL/openSUSE-style x64 | `.rpm`                             | Install the package using your distribution's installer.                                                   |
 
-| Platform                       | Local artifact                     | Install it                                                                                                              |
-| ------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| macOS                          | Unsigned `.dmg` and `.zip`         | Open the DMG and drag **Brainarium** to Applications. Gatekeeper may require Control-click → Open for a self-built app. |
-| Windows x64                    | Squirrel Setup `.exe` and `.nupkg` | Run the generated Setup executable on Windows.                                                                          |
-| Debian/Ubuntu x64              | `.deb`                             | Install the generated package with your distribution's package installer.                                               |
-| Fedora/RHEL/openSUSE-style x64 | `.rpm`                             | Install the generated package with your distribution's package installer.                                               |
+Artifacts are below `out/make/`. The full [build guide](docs/BUILDING-ELECTRON-APPS.md)
+and [release policy](docs/RELEASING.md) explain the trust boundary and native
+package details.
 
-Use this to locate a macOS DMG after a build:
+## Model Context Protocol (MCP)
 
-```sh
-find out/make -name '*.dmg' -print
-```
-
-Local macOS packages are intentionally unsigned. The tagged release workflow
-will provide signed/notarized macOS packages once issue #6 is complete. The
-full release and packaging policy is in [docs/RELEASING.md](docs/RELEASING.md).
-
-## Connect an AI client through MCP
-
-Brainarium includes a separate, local Rust MCP server. It does not need the
-Electron app to be running and serves exactly one vault that you explicitly
-configure.
-
-By default it is read-only and can report vault status, list supported visible
-files, read exact UTF-8 source, and return the global Markdown graph and
-per-file connections.
-
-Optional write access must be enabled explicitly. When enabled, it can create
-validated folders and atomically write supported text files with SHA-256
-version checks; Markdown writes rebuild the derived graph cache. It cannot
-delete, rename, execute shell commands, use the network, follow symlinks, or
-access outside the configured vault.
-
-For a native local server:
+Brainarium's MCP server is a separate Rust stdio process. Configure it with the
+one vault you intend to expose:
 
 ```sh
 cd brainarium-mcp
@@ -114,39 +125,84 @@ export BRAINARIUM_MCP_ALLOW_WRITE=false
 cargo run --release
 ```
 
-Copy one of the ready-made configurations for Claude Desktop, Claude Code,
-Codex, or another stdio MCP client from
-[brainarium-mcp/config](brainarium-mcp/config). Docker is also supported with a
-read-only vault mount by default. See the complete
-[MCP setup and safety guide](brainarium-mcp/README.md).
+It does not need the desktop app running.
+
+| Tool                               | What an agent can do                                                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `vault_status`                     | Confirm the vault boundary, source limit, supported formats, and write state.                                               |
+| `list_files` / `read_file`         | Discover visible supported files and read exact UTF-8 source.                                                               |
+| `vault_graph` / `file_connections` | Ask for the global Markdown graph or links to and from a note.                                                              |
+| `create_directory` / `write_file`  | Available only with explicit write access; create validated folders or atomically write supported text with version checks. |
+
+There is intentionally **no** delete, rename, shell, network, arbitrary binary
+upload, symlink traversal, or broad filesystem tool.
+
+### Add it to your AI client
+
+Ready-to-copy, read-only configurations are included for:
+
+- [Claude Desktop](brainarium-mcp/config/claude-desktop.example.json)
+- [Claude Code](brainarium-mcp/config/claude-code.docker.example.json)
+- [Codex](brainarium-mcp/config/codex.docker.example.toml)
+- [Docker and other stdio clients](brainarium-mcp/config/docker-mcp.example.json)
+
+For the native/Docker launch commands, write-access rules, and safety details,
+read the [Brainarium MCP guide](brainarium-mcp/README.md).
+
+> [!TIP]
+> Keep `BRAINARIUM_MCP_ALLOW_WRITE=false` until you specifically want an agent
+> to edit this vault. When you enable it, existing-file replacements still need
+> the version returned by `read_file`.
+
+## Safety and privacy
+
+Brainarium is designed around bounded local authority:
+
+- The Electron renderer is sandboxed; privileged work stays behind typed,
+  validated preload IPC.
+- Vault paths are canonicalized. Traversal, hidden cache access, and symlink
+  escapes are rejected where the relevant contract requires it.
+- Rendered Markdown is sanitized and inert: raw HTML, scripts, and remote
+  executable/embed content do not run.
+- The graph cache is derived data at `.brainarium/graph-v1.json`, never a new
+  proprietary document format.
+- There is no account, sync service, cloud database, or telemetry requirement.
+
+Read the [architecture](docs/ARCHITECTURE.md) and normative
+[technical contracts](docs/TECHNICAL-CONTRACTS.md) for the full boundary.
 
 ## Roadmap
 
-This is the current roadmap, derived from the open GitHub issues rather than
-speculative dates.
+The roadmap is the open GitHub issue tracker—not aspirational dates.
 
-| Priority | Next outcome                                                                                                     | Tracking issue                                               |
-| -------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| P0       | Add CodeMirror behind Markdown-fidelity and accessibility gates.                                                 | [#1](https://github.com/Grenguar/brainarium-editor/issues/1) |
-| P0       | Complete the documented CommonMark/GFM reading compatibility surface and fixtures.                               | [#2](https://github.com/Grenguar/brainarium-editor/issues/2) |
-| P0       | Resolve external-edit conflicts with Compare, Reload Disk, and Keep Mine.                                        | [#3](https://github.com/Grenguar/brainarium-editor/issues/3) |
-| Blocked  | Configure Apple signing/notarization and prove the protected release gate.                                       | [#6](https://github.com/Grenguar/brainarium-editor/issues/6) |
-| P1       | Stream and virtualize large CSV previews while keeping source exact.                                             | [#4](https://github.com/Grenguar/brainarium-editor/issues/4) |
-| P1       | Add host-level MCP protocol smoke tests for native and Docker launchers.                                         | [#5](https://github.com/Grenguar/brainarium-editor/issues/5) |
-| P1       | Run non-publishing Windows and Linux native package checks before releases.                                      | [#7](https://github.com/Grenguar/brainarium-editor/issues/7) |
-| P1       | Make generated Graphify documentation deterministic and tracked-source-only.                                     | [#8](https://github.com/Grenguar/brainarium-editor/issues/8) |
-| Planned  | Import or paste vault-owned images into `<vault>/images` with safe names, deduplication, and Markdown insertion. | [#9](https://github.com/Grenguar/brainarium-editor/issues/9) |
+<details>
+<summary><strong>See the current plan</strong></summary>
 
-## Development and documentation
+| Priority | Outcome                                                                     | Issue                                                        |
+| -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| P0       | CodeMirror-backed editing behind Markdown-fidelity and accessibility gates. | [#1](https://github.com/Grenguar/brainarium-editor/issues/1) |
+| P0       | Complete CommonMark/GFM reading compatibility and fixtures.                 | [#2](https://github.com/Grenguar/brainarium-editor/issues/2) |
+| P0       | Resolve external-edit conflicts with Compare, Reload Disk, and Keep Mine.   | [#3](https://github.com/Grenguar/brainarium-editor/issues/3) |
+| Blocked  | Configure signing/notarization and prove the protected release gate.        | [#6](https://github.com/Grenguar/brainarium-editor/issues/6) |
+| P1       | Stream and virtualize large CSV previews.                                   | [#4](https://github.com/Grenguar/brainarium-editor/issues/4) |
+| P1       | Add native and Docker MCP protocol smoke tests.                             | [#5](https://github.com/Grenguar/brainarium-editor/issues/5) |
+| P1       | Verify Windows/Linux packaging before a release tag.                        | [#7](https://github.com/Grenguar/brainarium-editor/issues/7) |
+| P1       | Make Graphify documentation rebuilds deterministic.                         | [#8](https://github.com/Grenguar/brainarium-editor/issues/8) |
+| Planned  | Import or paste vault-owned images into `<vault>/images`.                   | [#9](https://github.com/Grenguar/brainarium-editor/issues/9) |
 
-Run the full implementation gate before sharing a change:
+</details>
+
+## Develop, verify, contribute
 
 ```sh
 pnpm run quality
 ```
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — development, validation, and packaging
-- [docs/README.md](docs/README.md) — product, UX, architecture, and contracts
-- [docs/BUILDING-ELECTRON-APPS.md](docs/BUILDING-ELECTRON-APPS.md) — native builds
-- [docs/RELEASING.md](docs/RELEASING.md) — release trust and signing policy
-- [brainarium-mcp/README.md](brainarium-mcp/README.md) — MCP configuration and safety boundary
+Start with the [contributor guide](CONTRIBUTING.md), then use the
+[documentation map](docs/README.md) for product requirements, UX, architecture,
+contracts, decisions, and release operations.
+
+---
+
+Brainarium is built for people who want their notes to remain plain files—and
+for agents that should earn exactly the authority they need.
