@@ -21,6 +21,8 @@ The selected directory is the vault. Main-process file operations resolve a real
 
 Saves use same-directory temporary replacement where supported and leave either the complete old or complete new file after interruption. The main process uses native recursive events as a fast path, debounces them for 350 ms, and reconciles every three seconds as a correctness backstop. A clean open file reloads from the fresh scan; a dirty Markdown editor remains untouched and shows an external-change notice. A missing open file becomes a recoverable missing state.
 
+Markdown review state is bounded application-support data, keyed by the canonical vault path; it never becomes vault content or enters version control. The first reconciliation establishes a per-file reviewed baseline without reporting a change. Later external Markdown changes preserve that baseline and surface a readable block-level comparison until the person explicitly marks the file reviewed. The comparison includes whole affected prose, list, quote, code, or table blocks, with word-level emphasis where useful; it does not imply acceptance, rejection, or a write to the vault.
+
 ## Rebuildable link graph and search
 
 Brainarium's vault navigation graph is first-party and deterministic: an explicitly invoked, packaged Rust indexer reads active-vault Markdown only, resolves explicit wiki and local Markdown links only when targets are unambiguous, and retains only resolved edges. It ignores dot-directories, invalid UTF-8, symlinks, inline code, and fenced code. It needs no LLM.

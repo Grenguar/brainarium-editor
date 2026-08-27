@@ -16,6 +16,7 @@ import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
 import { VaultSessionStore } from "./vault/vault-session-state";
+import { VaultReviewStore } from "./vault/vault-review-store";
 import { searchVault } from "./vault/vault-search";
 import {
   readVaultImage,
@@ -27,6 +28,8 @@ import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
 import type {
   DocumentSaveInput,
+  DocumentReviewState,
+  MarkdownChangeReview,
   RestoredVaultSession,
   VaultImageRequest,
   VaultSessionState,
@@ -40,6 +43,7 @@ let mainWindow: BrowserWindow | undefined;
 let vaultWatcher: VaultWatcher | undefined;
 let graphRebuildGeneration = 0;
 let vaultSessionStore: VaultSessionStore | undefined;
+let vaultReviewStore: VaultReviewStore | undefined;
 
 const appDescription = "A local-first editor for the files you already trust.";
 
@@ -63,6 +67,13 @@ const vaultSessions = (): VaultSessionStore => {
     path.join(app.getPath("userData"), "vault-session.json"),
   );
   return vaultSessionStore;
+};
+
+const vaultReviews = (): VaultReviewStore => {
+  vaultReviewStore ??= new VaultReviewStore(
+    path.join(app.getPath("userData"), "vault-review-v1.json"),
+  );
+  return vaultReviewStore;
 };
 
 const indexer = (): RustIndexerService =>
@@ -130,6 +141,7 @@ async function openVault(
   const snapshot = await scanVault(vaultPath);
   await recentVaults().remember(snapshot.rootPath);
   await vaultSessions().rememberVault(snapshot.rootPath);
+  await vaultReviews().reconcile(snapshot);
   activeVault = snapshot;
   vaultWatcher?.start(snapshot);
   return snapshot;
@@ -137,9 +149,9 @@ async function openVault(
 
 const createWindow = (): void => {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
+    width: 1440,
+    height: 900,
+    minWidth: 960,
     minHeight: 600,
     title: `${app.getName()} ${app.getVersion()}`,
     webPreferences: {
@@ -254,7 +266,48 @@ ipcMain.handle(
     if (!activeVault || !isSaveInput(input)) {
       throw new Error("No valid document save is available.");
     }
-    return saveVaultDocument(activeVault, input);
+    const result = await saveVaultDocument(activeVault, input);
+    if (result.status === "saved") {
+      await vaultReviews().recordReviewedText(
+        activeVault.rootPath,
+        result.document.relativePath,
+        result.document.text,
+      );
+    }
+    return result;
+  },
+);
+
+ipcMain.handle(
+  "vault:reviewStates",
+  async (): Promise<DocumentReviewState[]> =>
+    activeVault ? vaultReviews().states(activeVault.rootPath) : [],
+);
+
+ipcMain.handle(
+  "document:changeReview",
+  async (
+    _event,
+    relativePath: unknown,
+  ): Promise<MarkdownChangeReview | undefined> => {
+    if (!activeVault || typeof relativePath !== "string") {
+      throw new Error("Open a Markdown document before viewing its changes.");
+    }
+    const document = activeVault.documents.find(
+      (candidate) => candidate.relativePath === relativePath,
+    );
+    if (document?.kind !== "markdown") return undefined;
+    return vaultReviews().review(activeVault.rootPath, relativePath);
+  },
+);
+
+ipcMain.handle(
+  "document:markReviewed",
+  async (_event, relativePath: unknown): Promise<DocumentReviewState[]> => {
+    if (!activeVault || typeof relativePath !== "string") {
+      throw new Error("Open a Markdown document before marking it reviewed.");
+    }
+    return vaultReviews().markReviewed(activeVault.rootPath, relativePath);
   },
 );
 
@@ -350,6 +403,22 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "document:copyPath",
+  async (_event, relativePath: unknown): Promise<void> => {
+    if (typeof relativePath !== "string" || !activeVault) {
+      throw new Error("No active vault document is available.");
+    }
+    const document = activeVault.documents.find(
+      (candidate) => candidate.relativePath === relativePath,
+    );
+    if (!document) {
+      throw new Error("That document is no longer in the active vault.");
+    }
+    clipboard.writeText(path.join(activeVault.rootPath, document.relativePath));
+  },
+);
+
 // Packaged builds take the dock icon from the .app bundle (packagerConfig.icon).
 // `electron-forge start` runs the bare Electron binary, so set it by hand in dev.
 const applyDevDockIcon = () => {
@@ -372,8 +441,9 @@ app.whenReady().then(() => {
     copyright: "Copyright © 2026 Brainarium contributors",
     version: `v${app.getVersion()}`,
   });
-  vaultWatcher = new VaultWatcher((snapshot) => {
+  vaultWatcher = new VaultWatcher(async (snapshot) => {
     const previousSnapshot = activeVault;
+    await vaultReviews().reconcile(snapshot);
     activeVault = snapshot;
     mainWindow?.webContents.send("vault:changed", snapshot);
     void refreshCachedGraphAfterMarkdownChange(previousSnapshot, snapshot);

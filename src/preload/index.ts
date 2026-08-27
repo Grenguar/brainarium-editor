@@ -4,8 +4,10 @@ import type {
   BrainariumAppInfo,
   DocumentSaveInput,
   DocumentSaveResult,
+  DocumentReviewState,
   RecentVault,
   RestoredVaultSession,
+  MarkdownChangeReview,
   VaultDocumentContent,
   VaultImageContent,
   ImageImportResult,
@@ -25,6 +27,12 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:choose"),
   readDocument: (relativePath: string): Promise<VaultDocumentContent> =>
     ipcRenderer.invoke("document:read", relativePath),
+  changeReview: (
+    relativePath: string,
+  ): Promise<MarkdownChangeReview | undefined> =>
+    ipcRenderer.invoke("document:changeReview", relativePath),
+  markReviewed: (relativePath: string): Promise<DocumentReviewState[]> =>
+    ipcRenderer.invoke("document:markReviewed", relativePath),
   readLocalImage: (request: VaultImageRequest): Promise<VaultImageContent> =>
     ipcRenderer.invoke("document:readLocalImage", request),
   importImage: (sourceRelativePath: string): Promise<ImageImportResult> =>
@@ -37,6 +45,8 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:linkGraph"),
   copyDocumentContent: (relativePath: string): Promise<void> =>
     ipcRenderer.invoke("document:copyContent", relativePath),
+  copyDocumentPath: (relativePath: string): Promise<void> =>
+    ipcRenderer.invoke("document:copyPath", relativePath),
   listRecentVaults: (): Promise<RecentVault[]> =>
     ipcRenderer.invoke("vault:listRecent"),
   openRecentVault: (id: string): Promise<VaultSnapshot> =>
@@ -67,12 +77,15 @@ contextBridge.exposeInMainWorld("brainarium", {
   },
   searchVault: (query: string): Promise<VaultSearchResult[]> =>
     ipcRenderer.invoke("vault:search", query),
+  reviewStates: (): Promise<DocumentReviewState[]> =>
+    ipcRenderer.invoke("vault:reviewStates"),
 });
 
 export type BrainariumApi = {
   appInfo(): Promise<BrainariumAppInfo>;
   chooseVault(): Promise<ChooseVaultResult>;
   copyDocumentContent(relativePath: string): Promise<void>;
+  copyDocumentPath(relativePath: string): Promise<void>;
   buildVaultLinkGraph(): Promise<VaultLinkGraph>;
   listRecentVaults(): Promise<RecentVault[]>;
   openRecentVault(id: string): Promise<VaultSnapshot>;
@@ -83,7 +96,10 @@ export type BrainariumApi = {
   openExternalLink(target: string): Promise<void>;
   readLocalImage(request: VaultImageRequest): Promise<VaultImageContent>;
   importImage(sourceRelativePath: string): Promise<ImageImportResult>;
+  changeReview(relativePath: string): Promise<MarkdownChangeReview | undefined>;
+  markReviewed(relativePath: string): Promise<DocumentReviewState[]>;
   searchVault(query: string): Promise<VaultSearchResult[]>;
+  reviewStates(): Promise<DocumentReviewState[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
   saveDocument(input: DocumentSaveInput): Promise<DocumentSaveResult>;
 };

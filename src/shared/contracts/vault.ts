@@ -88,6 +88,19 @@ export type ImageImportResult = {
   relativePath: string;
 };
 
+/** A non-vault, per-file review state derived from App Support snapshots. */
+export type DocumentReviewState = {
+  changed: boolean;
+  changedAt?: number;
+  relativePath: string;
+};
+
+/** The bounded source pair used by the read-only changed-since-review panel. */
+export type MarkdownChangeReview = DocumentReviewState & {
+  currentText?: string;
+  previousText?: string;
+};
+
 export type RecentVault = {
   id: string;
   lastOpenedAt: string;

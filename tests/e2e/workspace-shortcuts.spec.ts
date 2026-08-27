@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -25,6 +25,8 @@ let application: ElectronApplication | undefined;
 let page: Page | undefined;
 let fixtureRoot = "";
 let userDataDirectory = "";
+const githubPlanPath = "soroka-tech/projects/hackathons/webmcp/github-plan.md";
+const githubPlanSource = "# GitHub plan\n\nShip the working plan first.\n";
 
 async function packagedExecutable(): Promise<string> {
   if (process.platform !== "darwin") {
@@ -64,6 +66,14 @@ test.beforeAll(async () => {
   );
   await writeFile(path.join(fixtureRoot, "reading.md"), source, "utf8");
   await writeFile(path.join(fixtureRoot, "image.png"), fixturePng);
+  await mkdir(path.join(fixtureRoot, path.dirname(githubPlanPath)), {
+    recursive: true,
+  });
+  await writeFile(
+    path.join(fixtureRoot, githubPlanPath),
+    githubPlanSource,
+    "utf8",
+  );
   await writeFile(
     path.join(fixtureRoot, "skills-lock.json"),
     JSON.stringify({ name: "dark theme fixture", version: 1 }, null, 2),
@@ -194,4 +204,87 @@ test("decodes verified images in Markdown and the standalone image preview", asy
       })),
     )
     .toEqual({ complete: true, naturalWidth: 1 });
+});
+
+test("shows readable blocks changed by an external writer until explicitly reviewed", async () => {
+  if (!page) throw new Error("Brainarium did not launch.");
+
+  await page.getByRole("button", { name: "reading.md" }).click();
+  await writeFile(
+    path.join(fixtureRoot, "reading.md"),
+    source.replace(
+      "Paragraph 1: needle source text that keeps this document readable.",
+      "Paragraph 1: revised source text that keeps this document readable.",
+    ),
+    "utf8",
+  );
+
+  await expect(
+    page.getByText(
+      "Updated since you last reviewed — open Read mode to inspect it.",
+    ),
+  ).toBeVisible();
+  const review = page.getByRole("complementary", {
+    name: "Changes since you last reviewed",
+  });
+  await expect(review).toContainText("Updated paragraph");
+  await expect(review).toContainText("revised source text");
+  const reviewWidth = await review.boundingBox();
+  expect(reviewWidth?.width).toBeGreaterThanOrEqual(544);
+  const resizeHandle = page.getByRole("separator", {
+    name: "Resize change review panel",
+  });
+  const widthBeforeKeyboardResize = Number(
+    await resizeHandle.getAttribute("aria-valuenow"),
+  );
+  await resizeHandle.press("ArrowLeft");
+  await expect(resizeHandle).toHaveAttribute(
+    "aria-valuenow",
+    String(widthBeforeKeyboardResize + 32),
+  );
+  await expect(page.getByLabel("Changed since reviewed")).toBeVisible();
+
+  await review.getByRole("button", { name: "Mark reviewed" }).click();
+  await expect(review).toHaveCount(0);
+  await expect(page.getByLabel("Changed since reviewed")).toHaveCount(0);
+});
+
+test("reveals changed nested files and offers copy actions from their context menu", async () => {
+  if (!page) throw new Error("Brainarium did not launch.");
+
+  await writeFile(
+    path.join(fixtureRoot, githubPlanPath),
+    "# GitHub plan\n\nShip the revised working plan first.\n",
+    "utf8",
+  );
+
+  for (const name of ["soroka-tech", "projects", "hackathons", "webmcp"]) {
+    await expect(page.getByRole("button", { name })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  }
+  const githubPlan = page.getByRole("button", { name: "github-plan.md" });
+  await expect(githubPlan).toBeVisible();
+  await expect(githubPlan.getByLabel("Changed since reviewed")).toBeVisible();
+
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await githubPlan.click({ button: "right" });
+  const menu = page.getByRole("menu", {
+    name: `Actions for ${githubPlanPath}`,
+  });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Copy full path" }).click();
+  await expect
+    .poll(() => page?.evaluate(() => navigator.clipboard.readText()))
+    .toBe(path.join(await realpath(fixtureRoot), githubPlanPath));
+
+  await githubPlan.click({ button: "right" });
+  await page
+    .getByRole("menu", { name: `Actions for ${githubPlanPath}` })
+    .getByRole("menuitem", { name: "Copy content" })
+    .click();
+  await expect
+    .poll(() => page?.evaluate(() => navigator.clipboard.readText()))
+    .toBe("# GitHub plan\n\nShip the revised working plan first.\n");
 });

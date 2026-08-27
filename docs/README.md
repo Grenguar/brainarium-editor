@@ -15,6 +15,7 @@ Build the first usable release with Electron and TypeScript:
 - Electron main process for vault access, file watching, indexing, and Codex process supervision.
 - `codex app-server` over JSONL/stdio behind a provider-neutral agent adapter.
 - Read-only CSV table viewing, fit/zoom image previews, and exact-source previews for plain text, JSON, XML, and HTML.
+- A reader-first change-review surface: external Markdown edits are marked in the tree and compared as readable whole blocks until explicitly marked reviewed, without writing or accepting anything.
 - A first-party Rust sidecar builds a deterministic Markdown link graph on demand. It stores only a rebuildable, versioned cache at `.brainarium/graph-v1.json` in the explicitly opened vault, refreshes that cache after a Markdown change once graphing is enabled, never changes source documents, and does not need an LLM.
 - A separate Rust stdio MCP server can be explicitly configured for one selected vault. It is independent of the Electron renderer and exposes only bounded, version-checked file operations and the same no-LLM graph cache.
 
