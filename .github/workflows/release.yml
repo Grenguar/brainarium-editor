@@ -180,6 +180,19 @@ jobs:
         run: pnpm run quality
       - name: Package Debian and RPM artifacts
         run: pnpm run make -- --arch x64
+      - name: Verify Linux sandbox helper metadata
+        run: |
+          mapfile -t debs < <(find out/make -type f -name '*.deb' | sort)
+          mapfile -t rpms < <(find out/make -type f -name '*.rpm' | sort)
+          test "${#debs[@]}" -gt 0
+          test "${#rpms[@]}" -gt 0
+          for deb in "${debs[@]}"; do
+            dpkg-deb --contents "$deb" | grep -E -- '^-rwsr-xr-x root/root .*chrome-sandbox$'
+          done
+          for rpm in "${rpms[@]}"; do
+            rpm -qp --qf '[%{FILEUSERNAME} %{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" \
+              | grep -E -- '^root -rwsr-xr-x .*chrome-sandbox$'
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: brainarium-linux-x64

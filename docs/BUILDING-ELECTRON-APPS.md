@@ -17,6 +17,12 @@ Forge starts the Electron main process, sandboxed renderer, and preload bridge.
 It also builds Brainarium's Rust graph indexer before development or packaging.
 Quit the app or press `Ctrl+C` in the terminal to stop it.
 
+On Ubuntu and other Linux hosts, first run `pnpm run doctor:linux`. A passing
+result confirms that Electron has either a user-namespace sandbox route or a
+properly installed setuid helper. If it fails, do not pass `--no-sandbox` or
+modify `node_modules`; follow the administrator-owned remediation in
+[CONTRIBUTING.md](../CONTRIBUTING.md#ubuntu-and-other-linux-development-hosts).
+
 Run the mandatory quality gate before sharing a change:
 
 ```sh
@@ -33,15 +39,17 @@ pnpm run make
 
 The resulting native installers appear below `out/make/`:
 
-| Host platform | Local artifacts |
-| --- | --- |
-| macOS | unsigned DMG and ZIP |
-| Windows x64 | Squirrel Setup `.exe` and `.nupkg` |
-| Debian/Ubuntu x64 | `.deb` |
-| Fedora/RHEL/openSUSE-style x64 | `.rpm` |
+| Host platform                  | Local artifacts                    |
+| ------------------------------ | ---------------------------------- |
+| macOS                          | unsigned DMG and ZIP               |
+| Windows x64                    | Squirrel Setup `.exe` and `.nupkg` |
+| Debian/Ubuntu x64              | `.deb`                             |
+| Fedora/RHEL/openSUSE-style x64 | `.rpm`                             |
 
 Local macOS builds are intentionally unsigned. The tagged GitHub release
 workflow performs signing and notarization; see [RELEASING.md](RELEASING.md).
+Linux package creation preserves the `chrome-sandbox` helper metadata in the
+native installer; verify the generated installer on a clean Linux account.
 
 ## Create your own Electron Forge app
 

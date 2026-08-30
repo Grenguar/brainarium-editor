@@ -16,6 +16,7 @@
     "prestart": "pnpm run build:rust",
     "start": "electron-forge start",
     "dev": "electron-forge start",
+    "doctor:linux": "node scripts/linux-sandbox-doctor.mjs",
     "build:rust": "cargo build --release --manifest-path rust/Cargo.toml",
     "package": "pnpm run build:rust && electron-forge package",
     "make": "pnpm run build:rust && electron-forge make",

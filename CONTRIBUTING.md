@@ -2,12 +2,13 @@
 
 ## Local development
 
-Prerequisites: Node 24 (managed by `.nvmrc`), Rust stable, and Corepack/pnpm. Build and package an installer on
-the operating system you target. From the repository root:
+Prerequisites: Node 24, Rust stable, and Corepack/pnpm. `.nvmrc` records the
+required Node version but NVM is optional: use any Node 24 installation method
+your system supports. Build and package an installer on the operating system
+you target. From the repository root:
 
 ```sh
-nvm install
-nvm use
+node --version # must report a Node 24 release
 corepack enable
 pnpm install --frozen-lockfile
 pnpm run dev
@@ -27,6 +28,24 @@ local installable build, use `pnpm run make:local-update`: it increments only
 the patch version without a Git tag and then runs the native maker. See
 [docs/BUILDING-ELECTRON-APPS.md](docs/BUILDING-ELECTRON-APPS.md) for the
 package flow and [docs/RELEASING.md](docs/RELEASING.md) for protected releases.
+
+### Ubuntu and other Linux development hosts
+
+Electron must retain Chromium sandboxing. Before starting the app on Linux,
+run:
+
+```sh
+pnpm run doctor:linux
+```
+
+The preflight succeeds when the host permits unprivileged user namespaces or
+when Electron has a root-owned, setuid `chrome-sandbox` helper. A checkout's
+`node_modules` normally does **not** own that helper, so do not run
+`--no-sandbox`, `chmod`, or `chown` against it. If the preflight fails, ask
+the system administrator to enable the distribution's supported user-namespace
+policy. Alternatively, build and install Brainarium's native `.deb` or `.rpm`;
+the installer, rather than an unprivileged development checkout, owns helper
+permissions.
 
 ## Local MCP
 
