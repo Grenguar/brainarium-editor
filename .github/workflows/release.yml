@@ -176,6 +176,7 @@ jobs:
           path: release-artifacts
       - name: Create release from the immutable tag
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
