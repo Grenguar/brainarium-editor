@@ -39,15 +39,14 @@ This is intentional authority separation: the built-in Codex provider remains pr
 
 ## Distribution boundary
 
-Release builds run on their native target OS: signed/notarized macOS DMG and
-ZIP artifacts for Apple Silicon and Intel, a Windows x64 Squirrel Setup `.exe`,
-and Linux x64 `.deb` and `.rpm` packages. A release is published only after all
-four platform jobs and the protected macOS signing/notarization job succeed;
-the version tag must equal `package.json`. Native installers never include a
-vault, an MCP configuration, or a user-specific filesystem permission. The
-Windows and Linux packages are unsigned in the initial release policy, so their
-installer provenance is the GitHub Release checksum until their respective
-signing decisions are closed.
+Release builds run on their native target OS: unsigned macOS DMG and ZIP
+artifacts for Apple Silicon and Intel, a Windows x64 Squirrel Setup `.exe`, and
+Linux x64 `.deb` and `.rpm` packages. A release is published only after every
+package job succeeds; the version tag must equal `package.json`. Native
+installers never include a vault, an MCP configuration, or a user-specific
+filesystem permission. macOS, Windows, and Linux artifacts are unsigned in the
+initial release policy, so their installer provenance is the GitHub Release
+checksum until their respective signing decisions are closed.
 
 ## Agent safety and protocol
 

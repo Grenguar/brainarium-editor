@@ -1,6 +1,8 @@
 # Releasing Brainarium
 
-Status: implemented release pipeline, 2026-08-25. The first public release is blocked until the Apple signing and notarization secrets below are configured.
+Status: implemented release pipeline, 2026-08-30. Tagged releases publish
+downloadable installers for every supported platform. macOS artifacts are
+unsigned and not notarized until Apple signing is deliberately enabled.
 
 ## What is shipped
 
@@ -8,25 +10,26 @@ A Git tag matching the package version (for example, `v0.1.0`) triggers
 [release.yml](../.github/workflows/release.yml). It builds and validates native
 artifacts on their target OS, then attaches the following to the GitHub Release:
 
-| Platform                   | Architectures           | Artifacts                          | Production trust state                                  |
-| -------------------------- | ----------------------- | ---------------------------------- | ------------------------------------------------------- |
-| macOS                      | Apple Silicon and Intel | signed/notarized DMG and ZIP       | Developer ID + Apple notarization                       |
-| Windows                    | x64                     | Squirrel Setup `.exe` and `.nupkg` | unsigned until Windows code signing is configured       |
-| Debian/Ubuntu              | x64                     | `.deb`                             | SHA-256 checksum until repository signing is configured |
-| Fedora/RHEL/openSUSE-style | x64                     | `.rpm`                             | SHA-256 checksum until repository signing is configured |
+| Platform                   | Architectures           | Artifacts                          | Production trust state                                   |
+| -------------------------- | ----------------------- | ---------------------------------- | -------------------------------------------------------- |
+| macOS                      | Apple Silicon and Intel | unsigned DMG and ZIP               | Gatekeeper warning until signing/notarization is enabled |
+| Windows                    | x64                     | Squirrel Setup `.exe` and `.nupkg` | unsigned until Windows code signing is configured        |
+| Debian/Ubuntu              | x64                     | `.deb`                             | SHA-256 checksum until repository signing is configured  |
+| Fedora/RHEL/openSUSE-style | x64                     | `.rpm`                             | SHA-256 checksum until repository signing is configured  |
 
-The release is published only after all target jobs succeed. The macOS job is
-the protected signing/notarization gate: without its Apple credentials the
-workflow fails before it can create a public release.
+The release is published only after all target jobs succeed. Windows and Linux
+installers are published with SHA-256 checksums; macOS downloads are clearly
+unsigned until Apple signing/notarization is enabled.
 
 Users update manually in v1: quit Brainarium, run the new native installer for
 their platform, and replace the existing application when asked. The macOS ZIP
 is retained for a future in-app update feed; automatic updating is intentionally
 not enabled until the repository's distribution/privacy policy is decided.
 
-## One-time GitHub setup
+## Optional macOS signing setup
 
-Create a `release` GitHub Actions environment and give only its workflows access to these encrypted secrets:
+When a notarized macOS release is required, create a `release` GitHub Actions
+environment and give only its workflows access to these encrypted secrets:
 
 | Secret                                  | Value                                                                                        |
 | --------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -37,7 +40,10 @@ Create a `release` GitHub Actions environment and give only its workflows access
 | `APPLE_API_KEY_ID`                      | The API key identifier.                                                                      |
 | `APPLE_API_ISSUER`                      | The App Store Connect API issuer UUID.                                                       |
 
-The workflow creates an ephemeral keychain on each runner; do not commit a certificate, `.p8` file, password, or local `.env` to the repository. Apple Developer Program membership, a Developer ID Application certificate, and notarization credentials are prerequisites. A tagged release fails before packaging if any secret is absent, rather than publishing an unsigned DMG.
+Do not commit a certificate, `.p8` file, password, or local `.env` to the
+repository. Apple Developer Program membership, a Developer ID Application
+certificate, and notarization credentials are required only when the separate
+signing/notarization enhancement is enabled.
 
 On the Mac that owns the certificate, export it from Keychain Access as a password-protected `.p12`, then create the two encoded values without placing their source files in the repository:
 
@@ -60,9 +66,8 @@ Paste the first result into `BRAINARIUM_MACOS_CERTIFICATE_P12` and the second in
    ```
 
 4. Watch the **Release Brainarium** workflow. It verifies that the tag and
-   package version match, validates the app on each native target, signs and
-   notarizes the two macOS builds, and creates the GitHub Release only after all
-   package jobs succeed.
+   package version match, validates the app on each native target, and creates
+   the GitHub Release only after all package jobs succeed.
 5. Download the artifact for each supported platform and test it on a clean
    account before announcing it. Verify `SHA256SUMS.txt` before installing an
    unsigned Windows or Linux package.

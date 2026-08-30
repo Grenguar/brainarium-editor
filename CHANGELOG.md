@@ -7,6 +7,7 @@ All notable Brainarium changes are documented here, following the structure of [
 ### Added
 
 - A Linux sandbox preflight and Ubuntu setup guidance that preserve Electron sandboxing. (#53)
+- Downloadable unsigned macOS, Windows, Debian/Ubuntu, and RPM release assets without an Apple signing prerequisite.
 - Cross-platform keyboard shortcuts for vault search, Find in file, and Copy content.
 - Planning documentation, quality gates, tag taxonomy, and future GitHub Actions plan.
 - Local macOS DMG packaging and a signed, notarized GitHub Release pipeline for version tags.
