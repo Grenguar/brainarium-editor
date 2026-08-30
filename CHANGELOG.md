@@ -4,6 +4,8 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-08-30
+
 ### Added
 
 - A Linux sandbox preflight and Ubuntu setup guidance that preserve Electron sandboxing. (#53)
@@ -27,6 +29,7 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ### Fixed
 
+- Package Windows and Linux installers consistently in the GitHub Release workflow.
 - Keep the active vault, file, and reading position after reload or relaunch.
 - Keep JSON, source code, CSV, preview, and comparison surfaces readable in dark theme.
 

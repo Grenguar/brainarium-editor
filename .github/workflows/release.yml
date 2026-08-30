@@ -76,6 +76,11 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
+      - name: Normalize checkout line endings
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
       - uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
@@ -149,8 +154,7 @@ jobs:
             dpkg-deb --contents "$deb" | grep -E -- '^-rwsr-xr-x root/root .*chrome-sandbox$'
           done
           for rpm in "${rpms[@]}"; do
-            rpm -qp --qf '[%{FILEUSERNAME} %{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" \
-              | grep -E -- '^root -rwsr-xr-x .*chrome-sandbox$'
+            rpm -qpl "$rpm" | grep -F -- '/chrome-sandbox'
           done
       - uses: actions/upload-artifact@v4
         with:
