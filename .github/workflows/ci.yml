@@ -52,6 +52,7 @@ jobs:
         run: |
           deb="$(find out/make -type f -name '*.deb' -print -quit)"
           test -n "$deb"
+          deb="$(realpath "$deb")"
           sudo apt-get install --yes "$deb"
           launch_log="$(mktemp)"
           setsid xvfb-run -a brainarium --user-data-dir="$(mktemp -d)" >"$launch_log" 2>&1 &
