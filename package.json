@@ -1,7 +1,7 @@
 {
   "name": "brainarium",
   "productName": "Brainarium",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "packageManager": "pnpm@11.24.0",
   "engines": {
     "node": ">=24.0.0 <25",

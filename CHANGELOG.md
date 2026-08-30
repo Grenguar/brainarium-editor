@@ -4,6 +4,12 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-30
+
+### Fixed
+
+- Include the Rust indexing helper in Windows installers.
+
 ## [0.1.6] - 2026-08-30
 
 ### Added

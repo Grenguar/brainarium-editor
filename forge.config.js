@@ -51,7 +51,11 @@ module.exports = {
     executableName: "brainarium",
     // Extension omitted so packager picks .icns on macOS / .ico on Windows.
     icon: "./assets/icon",
-    extraResource: ["rust/target/release/brainarium-indexer"],
+    extraResource: [
+      process.platform === "win32"
+        ? "rust/target/release/brainarium-indexer.exe"
+        : "rust/target/release/brainarium-indexer",
+    ],
     ...macOSReleaseConfig(),
   },
   rebuildConfig: {},
