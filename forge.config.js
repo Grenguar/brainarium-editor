@@ -46,6 +46,9 @@ module.exports = {
   packagerConfig: {
     appBundleId: "com.brainarium.app",
     appCategoryType: "public.app-category.productivity",
+    // Linux makers derive their launcher name from package.json's `name`.
+    // Keep the packaged executable aligned so .deb and .rpm creation works.
+    executableName: "brainarium",
     // Extension omitted so packager picks .icns on macOS / .ico on Windows.
     icon: "./assets/icon",
     extraResource: ["rust/target/release/brainarium-indexer"],
