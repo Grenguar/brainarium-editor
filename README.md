@@ -10,7 +10,7 @@
 
 <div align="center">
   <a href="https://github.com/Grenguar/brainarium-editor/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Grenguar/brainarium-editor/ci.yml?branch=main&style=flat-square&label=quality" alt="quality"></a>
-  <a href="https://github.com/Grenguar/brainarium-editor"><img src="https://img.shields.io/badge/version-0.1.4-24312e?style=flat-square" alt="version 0.1.4"></a>
+  <a href="https://github.com/Grenguar/brainarium-editor/releases/latest"><img src="https://img.shields.io/github/v/release/Grenguar/brainarium-editor?display_name=tag&style=flat-square&color=24312e" alt="latest release"></a>
   <a href="#model-context-protocol-mcp"><img src="https://img.shields.io/badge/MCP-local%20stdio-24312e?style=flat-square" alt="local stdio MCP"></a>
   <a href="https://github.com/Grenguar/brainarium-editor/issues"><img src="https://img.shields.io/github/issues/Grenguar/brainarium-editor?style=flat-square&label=roadmap" alt="open roadmap issues"></a>
 </div>
@@ -26,10 +26,10 @@ offers a deliberately narrow [Model Context Protocol (MCP)](#model-context-proto
 server so an AI client can help without becoming a broad filesystem agent.
 
 > [!IMPORTANT]
-> **v0.1.4 is a self-build release.** There is no signed public download yet:
-> Apple signing and notarization are tracked in [#6](https://github.com/Grenguar/brainarium-editor/issues/6).
-> You can build a native installer on your own platform today with
-> [Quick start](#quick-start).
+> Native installers are published on the [GitHub Releases](https://github.com/Grenguar/brainarium-editor/releases/latest)
+> page for every supported operating system. Current macOS and Windows
+> downloads are unsigned; macOS signing and notarization are tracked in
+> [#6](https://github.com/Grenguar/brainarium-editor/issues/6).
 
 ## Why Brainarium
 
@@ -74,6 +74,23 @@ Electron app is closed; both preserve Markdown as the canonical content.
 
 ## Quick start
 
+### Download a release
+
+Every tagged release is built on its target operating system and attached to
+the [GitHub Release](https://github.com/Grenguar/brainarium-editor/releases/latest).
+Choose the package for your machine:
+
+| Platform                             | Architectures           | Download              | Notes                                                                                                          |
+| ------------------------------------ | ----------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| macOS                                | Apple Silicon and Intel | `.dmg` or `.zip`      | The DMG installs into Applications. Packages remain unsigned until Apple signing and notarization are enabled. |
+| Windows                              | x64                     | Squirrel Setup `.exe` | Run the Setup executable. Windows code signing is not enabled yet.                                             |
+| Debian / Ubuntu                      | x64                     | `.deb`                | Install with your distribution's package installer.                                                            |
+| Fedora / RHEL / openSUSE-style Linux | x64                     | `.rpm`                | Install with your distribution's package installer.                                                            |
+
+Each release includes `SHA256SUMS.txt` so you can verify the downloaded
+installer. See [Releasing](docs/RELEASING.md) for the supported artifact and
+trust details.
+
 ### Run the desktop app
 
 **Prerequisites:** Node `24.19.0` ([.nvmrc](.nvmrc)), Corepack/pnpm `11.24.0`,
@@ -91,7 +108,7 @@ pnpm run dev
 The explicit `source` works in non-interactive shells. In a normal terminal
 where NVM is already loaded, `nvm use` is enough.
 
-### Make an installer for your platform
+### Build an installer locally
 
 Build on the OS where you plan to run Brainarium:
 
