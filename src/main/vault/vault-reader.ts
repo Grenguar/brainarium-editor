@@ -35,8 +35,10 @@ export async function readVaultDocument(
     snapshot,
     relativePath,
   );
-  if (document.kind === "image") {
-    throw new Error("Images must be read through the image document reader.");
+  if (document.kind === "image" || document.kind === "pdf") {
+    throw new Error(
+      "Binary documents must be read through their dedicated reader.",
+    );
   }
 
   const bytes = await readFile(resolvedPath);

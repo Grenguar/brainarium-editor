@@ -475,6 +475,17 @@ h1 {
   width: 0.75rem;
 }
 
+.tree-file .ui-icon {
+  color: #d86d45;
+  display: inline-block;
+  height: 1rem;
+  margin-right: 0.35rem;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  vertical-align: -0.13rem;
+  width: 1rem;
+}
+
 .tree-file .tree-change-dot,
 .document-change-notice .tree-change-dot {
   background: var(--br-accent, #d86d45);
@@ -1050,6 +1061,83 @@ h1 {
 .image-preview-frame img.is-zoomed {
   max-height: none;
   max-width: none;
+}
+
+.pdf-document-preview {
+  margin: 0 auto;
+  max-width: 88rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.pdf-preview-heading {
+  align-items: center;
+  border-bottom: 1px solid #c7c5ba;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+}
+
+.pdf-preview-heading .section-label {
+  margin-bottom: 0.25rem;
+}
+
+.pdf-preview-heading p:not(.section-label) {
+  color: #68716c;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.pdf-preview-heading button {
+  background: #e0ddd2;
+  color: #273330;
+  flex: none;
+  min-height: 2.7rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.pdf-preview-heading button:hover {
+  background: #d2cfc4;
+}
+
+.pdf-preview-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: end;
+}
+
+.pdf-preview-controls output {
+  color: #59635e;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  min-width: 7.7rem;
+  text-align: center;
+}
+
+.pdf-preview-frame {
+  align-items: start;
+  background: #e0ddd2;
+  border: 1px solid #c7c5ba;
+  box-shadow: 0 1rem 3rem rgb(39 51 48 / 12%);
+  box-sizing: border-box;
+  height: min(76vh, 70rem);
+  min-height: 34rem;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.65rem;
+  width: 100%;
+}
+
+.pdf-preview-frame canvas {
+  background: #fff;
+  display: block;
+  margin: 0 auto;
+  max-width: none;
+  flex: none;
 }
 
 .markdown-reading h1,

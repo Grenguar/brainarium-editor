@@ -14,6 +14,7 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ### Added
 
+- Open local PDFs in a polished, read-only in-app viewer with verified bytes and no filesystem URL exposure. (#22)
 - A Linux sandbox preflight and Ubuntu setup guidance that preserve Electron sandboxing. (#53)
 - Downloadable unsigned macOS, Windows, Debian/Ubuntu, and RPM release assets without an Apple signing prerequisite.
 - Cross-platform keyboard shortcuts for vault search, Find in file, and Copy content.
@@ -42,6 +43,7 @@ All notable Brainarium changes are documented here, following the structure of [
 - Package Windows and Linux installers consistently in the GitHub Release workflow.
 - Keep the active vault, file, and reading position after reload or relaunch.
 - Keep JSON, source code, CSV, preview, and comparison surfaces readable in dark theme.
+- Paste copied vault paths and document content as unstyled plain text in every theme.
 
 ### Security
 

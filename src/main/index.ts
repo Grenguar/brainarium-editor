@@ -25,6 +25,7 @@ import {
 } from "./vault/vault-image-reader";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
+import { readVaultPdfDocument } from "./vault/vault-pdf-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
 import type {
   DocumentSaveInput,
@@ -52,6 +53,12 @@ const appInfo = () => ({
   name: app.getName(),
   version: app.getVersion(),
 });
+
+/** Replace every clipboard representation so pasted vault data is plain text. */
+const copyPlainText = (text: string): void => {
+  clipboard.clear();
+  clipboard.writeText(text);
+};
 
 // Squirrel starts the app only to create or remove its Windows shortcut.
 // Quitting immediately keeps normal startup and installer maintenance separate.
@@ -335,9 +342,13 @@ ipcMain.handle(
     const document = activeVault.documents.find(
       (candidate) => candidate.relativePath === relativePath,
     );
-    return document?.kind === "image"
-      ? readVaultImageDocument(activeVault, relativePath)
-      : readVaultDocument(activeVault, relativePath);
+    if (document?.kind === "image") {
+      return readVaultImageDocument(activeVault, relativePath);
+    }
+    if (document?.kind === "pdf") {
+      return readVaultPdfDocument(activeVault, relativePath);
+    }
+    return readVaultDocument(activeVault, relativePath);
   },
 );
 
@@ -398,8 +409,14 @@ ipcMain.handle(
     if (typeof relativePath !== "string" || !activeVault) {
       throw new Error("No active vault document is available.");
     }
+    const selected = activeVault.documents.find(
+      (document) => document.relativePath === relativePath,
+    );
+    if (selected?.kind === "pdf" || selected?.kind === "image") {
+      throw new Error("This document has no text content to copy.");
+    }
     const document = await readVaultDocument(activeVault, relativePath);
-    clipboard.writeText(document.text);
+    copyPlainText(document.text);
   },
 );
 
@@ -415,7 +432,7 @@ ipcMain.handle(
     if (!document) {
       throw new Error("That document is no longer in the active vault.");
     }
-    clipboard.writeText(path.join(activeVault.rootPath, document.relativePath));
+    copyPlainText(path.join(activeVault.rootPath, document.relativePath));
   },
 );
 

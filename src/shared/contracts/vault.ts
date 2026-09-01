@@ -1,5 +1,5 @@
 export type DocumentKind =
-  "markdown" | "csv" | "text" | "json" | "xml" | "html" | "image";
+  "markdown" | "csv" | "text" | "json" | "xml" | "html" | "image" | "pdf";
 
 export type VaultDocument = {
   kind: DocumentKind;
@@ -40,6 +40,7 @@ export type VaultDocumentContent = Pick<
   "kind" | "relativePath" | "title"
 > & {
   image?: VaultImageContent;
+  pdf?: VaultPdfContent;
   text: string;
   version: string;
 };
@@ -81,6 +82,15 @@ export type VaultImageContent = {
   bytes: Uint8Array;
   mimeType:
     "image/avif" | "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+};
+
+/**
+ * Bytes for one scanned, active-vault PDF. The renderer creates a short-lived
+ * blob URL for Chromium's sandboxed PDF viewer; it never receives a path.
+ */
+export type VaultPdfContent = {
+  bytes: Uint8Array;
+  mimeType: "application/pdf";
 };
 
 export type ImageImportResult = {
