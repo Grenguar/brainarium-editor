@@ -96,7 +96,7 @@ module.exports = {
         genericName: "Local-first vault editor",
         group: "Applications/Editors",
         homepage: "https://github.com/Grenguar/brainarium-editor",
-        license: "UNLICENSED",
+        license: "Apache-2.0",
         productDescription:
           "Brainarium is a local-first editor for Markdown, CSV, and other text vault files.",
         requires: [
