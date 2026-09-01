@@ -58,7 +58,7 @@ jobs:
         run: |
           app_path="$(find out -type d -name Brainarium.app -print -quit)"
           test -n "$app_path"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: brainarium-macos-${{ matrix.arch }}
           if-no-files-found: error
@@ -102,7 +102,7 @@ jobs:
         run: pnpm run quality
       - name: Package Windows Setup
         run: pnpm run make -- --arch x64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: brainarium-windows-x64
           if-no-files-found: error
@@ -156,7 +156,7 @@ jobs:
           for rpm in "${rpms[@]}"; do
             rpm -qpl "$rpm" | grep -F -- '/chrome-sandbox'
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: brainarium-linux-x64
           if-no-files-found: error
