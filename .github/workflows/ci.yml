@@ -13,7 +13,7 @@ jobs:
     name: Validate macOS build
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
@@ -30,7 +30,7 @@ jobs:
     name: Validate Ubuntu package launch
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
