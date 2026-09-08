@@ -4,6 +4,14 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ## [Unreleased]
 
+### Added
+
+- A vault-wide Changes inbox listing every Markdown note edited since it was last reviewed, with per-folder change counts in the file tree, expandable diffs, and a confirmed Mark all as read that leaves files on disk untouched. (#28)
+
+### Fixed
+
+- Serialize review-store writes so a watcher reconciliation can no longer overwrite a note you just marked reviewed.
+
 ## [0.1.7] - 2026-08-30
 
 ### Fixed

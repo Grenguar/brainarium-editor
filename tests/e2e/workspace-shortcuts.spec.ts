@@ -359,3 +359,35 @@ test("reveals changed nested files and offers copy actions from their context me
     .poll(() => page?.evaluate(() => navigator.clipboard.readText()))
     .toBe("# GitHub plan\n\nShip the revised working plan first.\n");
 });
+
+// Appended last on purpose: marking every note reviewed clears the change
+// state that the earlier tests in this file establish and assert against.
+// Playwright runs one shared Electron instance in file order, so any test
+// placed after this one would start from an empty Changes inbox.
+test("counts changed notes per folder and clears them from the Changes inbox", async () => {
+  if (!page) throw new Error("Brainarium did not launch.");
+
+  const changedFolder = page.getByRole("button", {
+    name: "soroka-tech 1 changed since reviewed",
+  });
+  await expect(changedFolder).toBeVisible();
+
+  await page.keyboard.press("Meta+Shift+U");
+  const changes = page.getByRole("region", { name: "Changes" });
+  await expect(changes).toBeVisible();
+  await expect(
+    changes.getByRole("button", { name: githubPlanPath }),
+  ).toBeVisible();
+  await expect(changes.getByText("Markdown notes only")).toBeVisible();
+
+  await changes.getByRole("button", { name: "Mark all as read" }).click();
+  await changes
+    .getByRole("button", { name: "Confirm mark all as read" })
+    .click();
+
+  await expect(
+    changes.getByText("No changes since you last reviewed."),
+  ).toBeVisible();
+  await expect(page.getByLabel("Changed since reviewed")).toHaveCount(0);
+  await expect(changedFolder).toHaveCount(0);
+});
