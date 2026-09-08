@@ -497,6 +497,20 @@ h1 {
   width: 0.48rem;
 }
 
+.tree-directory .tree-change-count {
+  background: var(--br-accent, #d86d45);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1rem;
+  margin-left: 0.45rem;
+  min-width: 1.1rem;
+  padding: 0 0.28rem;
+  text-align: center;
+}
+
 .recent-vaults {
   margin-top: 3rem;
 }

@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Graph from "graphology";
 import Sigma from "sigma";
@@ -19,7 +19,9 @@ import type {
   VaultTreeNode,
 } from "../shared/contracts/vault";
 
+import { hasTextContent } from "../shared/documents";
 import { CsvPreview } from "./csv-preview";
+import { changedCounts } from "./changed-counts";
 import { ChangeReviewPanel } from "./change-review-panel";
 import { DocumentConflictPanel } from "./document-conflict-panel";
 import {
@@ -46,12 +48,14 @@ const platformShortcuts = shortcutLabels(currentShortcutPlatform);
 const TreeNode = ({
   activePath,
   changedPaths,
+  directoryCounts,
   node,
   onFileContextMenu,
   onSelect,
 }: {
   activePath?: string;
   changedPaths: ReadonlySet<string>;
+  directoryCounts: ReadonlyMap<string, number>;
   node: VaultTreeNode;
   onFileContextMenu: (
     relativePath: string,
@@ -60,11 +64,11 @@ const TreeNode = ({
   ) => void;
   onSelect: (relativePath: string) => void;
 }): React.JSX.Element => {
-  const containsChangedFile = (current: VaultTreeNode): boolean =>
-    current.kind === "directory"
-      ? current.children.some(containsChangedFile)
-      : changedPaths.has(current.relativePath);
-  const hasChangedDescendant = containsChangedFile(node);
+  const changedDescendants = directoryCounts.get(node.relativePath) ?? 0;
+  const hasChangedDescendant =
+    node.kind === "directory"
+      ? changedDescendants > 0
+      : changedPaths.has(node.relativePath);
   const [isOpen, setIsOpen] = useState(
     node.relativePath === "" || hasChangedDescendant,
   );
@@ -126,6 +130,14 @@ const TreeNode = ({
       >
         <span aria-hidden="true">{isOpen ? "⌄" : "›"}</span>
         {node.name || "Vault"}
+        {changedDescendants > 0 && node.relativePath !== "" && (
+          <span
+            aria-label={`${changedDescendants} changed since reviewed`}
+            className="tree-change-count"
+          >
+            {changedDescendants}
+          </span>
+        )}
       </button>
       {isOpen && node.children.length > 0 && (
         <ul>
@@ -134,6 +146,7 @@ const TreeNode = ({
               key={child.relativePath}
               activePath={activePath}
               changedPaths={changedPaths}
+              directoryCounts={directoryCounts}
               node={child}
               onFileContextMenu={onFileContextMenu}
               onSelect={onSelect}
@@ -801,10 +814,21 @@ const App = (): React.JSX.Element => {
   const findPositionsInDocument = document
     ? findPositions(editorText, findQuery)
     : [];
-  const changedPaths = new Set(
-    reviewStates
-      .filter((state) => state.changed)
-      .map((state) => state.relativePath),
+  const changedPaths = useMemo(
+    () =>
+      new Set(
+        reviewStates
+          .filter((state) => state.changed)
+          .map((state) => state.relativePath),
+      ),
+    [reviewStates],
+  );
+  const changedDirectoryCounts = useMemo(
+    () =>
+      snapshot
+        ? changedCounts(snapshot.tree, changedPaths)
+        : new Map<string, number>(),
+    [changedPaths, snapshot],
   );
   const preferredReviewPanelWidth =
     reviewPanelWidth ??
@@ -1371,15 +1395,15 @@ const App = (): React.JSX.Element => {
       } else if (
         key === "c" &&
         event.shiftKey &&
-        documentRef.current?.kind !== "image" &&
-        documentRef.current?.kind !== "pdf"
+        documentRef.current !== undefined &&
+        hasTextContent(documentRef.current.kind)
       ) {
         event.preventDefault();
         void copyDocumentContent();
       } else if (
         key === "c" &&
-        documentRef.current?.kind !== "image" &&
-        documentRef.current?.kind !== "pdf"
+        documentRef.current !== undefined &&
+        hasTextContent(documentRef.current.kind)
       ) {
         const target = event.target;
         if (
@@ -1647,6 +1671,7 @@ const App = (): React.JSX.Element => {
                 <TreeNode
                   activePath={document?.relativePath}
                   changedPaths={changedPaths}
+                  directoryCounts={changedDirectoryCounts}
                   node={snapshot.tree}
                   onFileContextMenu={openFileContextMenu}
                   onSelect={(relativePath) => void readDocument(relativePath)}
@@ -2239,7 +2264,7 @@ const App = (): React.JSX.Element => {
                       {session.status === "saving" ? "Saving…" : "Save"}
                     </button>
                   )}
-                  {document.kind !== "image" && document.kind !== "pdf" && (
+                  {hasTextContent(document.kind) && (
                     <button
                       aria-label={`Copy document content (${platformShortcuts.copyContent})`}
                       title={`Copy document content (${platformShortcuts.copyContent})`}
@@ -2438,10 +2463,7 @@ const App = (): React.JSX.Element => {
               Copy full path
             </button>
             <button
-              disabled={
-                fileContextMenu.kind === "image" ||
-                fileContextMenu.kind === "pdf"
-              }
+              disabled={!hasTextContent(fileContextMenu.kind)}
               role="menuitem"
               type="button"
               onClick={() => {
