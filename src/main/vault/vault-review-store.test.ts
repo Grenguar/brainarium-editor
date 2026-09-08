@@ -55,4 +55,26 @@ describe("VaultReviewStore", () => {
       [],
     );
   });
+
+  it("serializes a watcher reconciliation with marking a changed note reviewed", async () => {
+    const root = await temporaryDirectory();
+    const note = path.join(root, "plan.md");
+    const storage = path.join(await temporaryDirectory(), "review.json");
+    await writeFile(note, "First draft.\n");
+
+    const store = new VaultReviewStore(storage);
+    await store.reconcile(await scanVault(root));
+    await writeFile(note, "Reviewed revision.\n");
+    const changedSnapshot = await scanVault(root);
+
+    await Promise.all([
+      store.reconcile(changedSnapshot),
+      store.markReviewed(changedSnapshot.rootPath, "plan.md"),
+    ]);
+
+    await expect(store.states(changedSnapshot.rootPath)).resolves.toEqual([]);
+    await expect(
+      store.review(changedSnapshot.rootPath, "plan.md"),
+    ).resolves.toBeUndefined();
+  });
 });
