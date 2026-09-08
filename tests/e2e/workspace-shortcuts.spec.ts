@@ -1,4 +1,11 @@
-import { mkdtemp, mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -358,6 +365,42 @@ test("reveals changed nested files and offers copy actions from their context me
   await expect
     .poll(() => page?.evaluate(() => navigator.clipboard.readText()))
     .toBe("# GitHub plan\n\nShip the revised working plan first.\n");
+});
+
+test("exports a vault document to a PDF the user chooses a location for", async () => {
+  if (!page || !application) throw new Error("Brainarium did not launch.");
+
+  const target = path.join(
+    await mkdtemp(path.join(os.tmpdir(), "brainarium-pdf-")),
+    "export.pdf",
+  );
+  // The save dialog is native, so Playwright cannot drive it. Stubbing it in
+  // the main process keeps the rest of the path — IPC, the authoritative
+  // re-read, the hidden print window, and the disk write — genuinely exercised.
+  await application.evaluate(({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+  }, target);
+
+  await page
+    .getByRole("button", { name: "github-plan.md" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menu", { name: `Actions for ${githubPlanPath}` })
+    .getByRole("menuitem", { name: "Export to PDF" })
+    .click();
+
+  await expect
+    .poll(
+      async () => {
+        try {
+          return (await readFile(target)).subarray(0, 5).toString("ascii");
+        } catch {
+          return "";
+        }
+      },
+      { timeout: 20_000 },
+    )
+    .toBe("%PDF-");
 });
 
 // Appended last on purpose: marking every note reviewed clears the change

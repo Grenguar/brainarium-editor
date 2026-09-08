@@ -7,6 +7,7 @@ All notable Brainarium changes are documented here, following the structure of [
 ### Added
 
 - A vault-wide Changes inbox listing every Markdown note edited since it was last reviewed, with per-folder change counts in the file tree, expandable diffs, and a confirmed Mark all as read that leaves files on disk untouched. (#28)
+- Export any Markdown, CSV, text, JSON, XML, or HTML document to PDF, from the document toolbar or a file's context menu. Markdown keeps the reading view's formatting and inlines verified vault images; CSV prints as a table whose header repeats across pages. Exports use the document as saved on disk and write only where you choose.
 
 ### Fixed
 

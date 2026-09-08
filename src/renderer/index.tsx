@@ -763,6 +763,8 @@ const App = (): React.JSX.Element => {
   const [isChoosing, setIsChoosing] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportedFileName, setExportedFileName] = useState<string>();
   const [viewMode, setViewMode] = useState<"preview" | "editor">("preview");
   const [editorMode, setEditorMode] = useState<MarkdownEditorMode>("assisted");
   const [isReloading, setIsReloading] = useState(false);
@@ -1271,6 +1273,36 @@ const App = (): React.JSX.Element => {
       setError("Brainarium could not copy that file. Try opening it again.");
     } finally {
       setIsCopying(false);
+    }
+  };
+
+  /**
+   * Exports the document as saved on disk. The main process re-reads it, so an
+   * unsaved draft would silently export stale text; the button is disabled
+   * while dirty rather than exporting something the reader did not see.
+   */
+  const exportDocumentPdf = async (relativePath?: string): Promise<void> => {
+    const targetPath = relativePath ?? documentRef.current?.relativePath;
+    if (!targetPath) return;
+    setIsExporting(true);
+    try {
+      const result = await window.brainarium.exportDocumentPdf({
+        relativePath: targetPath,
+      });
+      if (result.status === "exported") {
+        setExportedFileName(result.fileName);
+        window.setTimeout(() => setExportedFileName(undefined), 2400);
+      } else if (result.status === "busy") {
+        setError("Brainarium is already exporting a document.");
+      } else if (result.status === "missing") {
+        setError("That file is no longer part of this vault.");
+      } else if (result.status === "unsupported") {
+        setError(`Brainarium cannot export ${result.kind} files to PDF.`);
+      }
+    } catch {
+      setError("Brainarium could not export that document to PDF.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -2340,6 +2372,25 @@ const App = (): React.JSX.Element => {
                       <kbd>{platformShortcuts.copyContent}</kbd>
                     </button>
                   )}
+                  {hasTextContent(document.kind) && (
+                    <button
+                      aria-label="Export document to PDF"
+                      disabled={isExporting || session.status === "dirty"}
+                      title={
+                        session.status === "dirty"
+                          ? "Save your changes first — Brainarium exports the saved file."
+                          : "Export document to PDF"
+                      }
+                      type="button"
+                      onClick={() => void exportDocumentPdf()}
+                    >
+                      {exportedFileName
+                        ? `Exported ${exportedFileName}`
+                        : isExporting
+                          ? "Exporting…"
+                          : "Export PDF"}
+                    </button>
+                  )}
                 </div>
               </header>
               {document.kind === "markdown" && changeReview && (
@@ -2536,6 +2587,17 @@ const App = (): React.JSX.Element => {
               }}
             >
               Copy content
+            </button>
+            <button
+              disabled={!hasTextContent(fileContextMenu.kind)}
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                void exportDocumentPdf(fileContextMenu.relativePath);
+                setFileContextMenu(undefined);
+              }}
+            >
+              Export to PDF…
             </button>
           </div>
         )}
