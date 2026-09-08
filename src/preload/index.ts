@@ -79,6 +79,8 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:search", query),
   reviewStates: (): Promise<DocumentReviewState[]> =>
     ipcRenderer.invoke("vault:reviewStates"),
+  markAllReviewed: (): Promise<DocumentReviewState[]> =>
+    ipcRenderer.invoke("vault:markAllReviewed"),
 });
 
 export type BrainariumApi = {
@@ -99,6 +101,7 @@ export type BrainariumApi = {
   changeReview(relativePath: string): Promise<MarkdownChangeReview | undefined>;
   markReviewed(relativePath: string): Promise<DocumentReviewState[]>;
   searchVault(query: string): Promise<VaultSearchResult[]>;
+  markAllReviewed(): Promise<DocumentReviewState[]>;
   reviewStates(): Promise<DocumentReviewState[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
   saveDocument(input: DocumentSaveInput): Promise<DocumentSaveResult>;

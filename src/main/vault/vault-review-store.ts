@@ -92,6 +92,23 @@ export class VaultReviewStore {
     });
   }
 
+  /**
+   * Clears every changed marker for a vault in one write. Only the App Support
+   * baseline moves: files on disk and any unsaved editor draft are untouched.
+   */
+  async markAllReviewed(vaultPath: string): Promise<DocumentReviewState[]> {
+    return this.exclusive(async () => {
+      const store = await this.read();
+      const vault = store.vaults[vaultPath];
+      if (!vault) return [];
+      for (const file of Object.values(vault.files)) {
+        file.lastReviewed = file.current;
+      }
+      await this.write(store);
+      return reviewStates(vault);
+    });
+  }
+
   async recordReviewedText(
     vaultPath: string,
     relativePath: string,

@@ -2,6 +2,7 @@ export type ShortcutPlatform = "macos" | "other";
 
 export type ShortcutLabels = {
   back: string;
+  changes: string;
   connections: string;
   copyContent: string;
   findInFile: string;
@@ -28,6 +29,7 @@ export const shortcutLabels = (platform: ShortcutPlatform): ShortcutLabels => {
   if (platform === "macos") {
     return {
       back: "⌥←",
+      changes: "⇧⌘U",
       connections: "⇧⌘G",
       copyContent: "⇧⌘C",
       findInFile: "⌘F",
@@ -42,6 +44,7 @@ export const shortcutLabels = (platform: ShortcutPlatform): ShortcutLabels => {
 
   return {
     back: "Alt+←",
+    changes: "Ctrl+Shift+U",
     connections: "Ctrl+Shift+G",
     copyContent: "Ctrl+Shift+C",
     findInFile: "Ctrl+F",

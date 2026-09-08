@@ -23,6 +23,7 @@ import { hasTextContent } from "../shared/documents";
 import { CsvPreview } from "./csv-preview";
 import { changedCounts } from "./changed-counts";
 import { ChangeReviewPanel } from "./change-review-panel";
+import { ChangesView } from "./changes-view";
 import { DocumentConflictPanel } from "./document-conflict-panel";
 import {
   documentSessionReducer,
@@ -693,6 +694,7 @@ const PdfDocumentPreview = ({
 
 type IconName =
   | "back"
+  | "changes"
   | "connections"
   | "files"
   | "forward"
@@ -706,6 +708,9 @@ type IconName =
 const Icon = ({ name }: { name: IconName }): React.JSX.Element => {
   const paths: Record<IconName, React.JSX.Element> = {
     back: <path d="m14.5 5-7 7 7 7M8 12h9" />,
+    changes: (
+      <path d="M4 13.5h4l1.5 2.5h5l1.5-2.5h4M4 13.5 6.5 5h11L20 13.5v5.5H4z" />
+    ),
     connections: (
       <path d="M9 7.5 7.5 6a3.2 3.2 0 0 0-4.5 4.5l2 2a3.2 3.2 0 0 0 4.5 0l1-1M15 16.5l1.5 1.5A3.2 3.2 0 0 0 21 13.5l-2-2a3.2 3.2 0 0 0-4.5 0l-1 1M8 16l8-8" />
     ),
@@ -766,7 +771,7 @@ const App = (): React.JSX.Element => {
   const [isLoadingLinkGraph, setIsLoadingLinkGraph] = useState(false);
   const [linkGraph, setLinkGraph] = useState<VaultLinkGraph>();
   const [workspaceView, setWorkspaceView] = useState<
-    "connections" | "document" | "graph"
+    "changes" | "connections" | "document" | "graph"
   >("document");
   const [graphMode, setGraphMode] = useState<"global" | "local">("global");
   const [graphQuery, setGraphQuery] = useState("");
@@ -1304,6 +1309,30 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  const markReviewedAt = async (relativePath: string): Promise<void> => {
+    try {
+      setReviewStates(await window.brainarium.markReviewed(relativePath));
+      if (documentRef.current?.relativePath === relativePath) {
+        setChangeReview(undefined);
+      }
+    } catch {
+      setError("Brainarium could not mark this document as reviewed.");
+    }
+  };
+
+  /**
+   * Only moves the stored review baseline. Files on disk and any unsaved draft
+   * are untouched, so this deliberately skips confirmLeaveDocument().
+   */
+  const markAllDocumentsReviewed = async (): Promise<void> => {
+    try {
+      setReviewStates(await window.brainarium.markAllReviewed());
+      setChangeReview(undefined);
+    } catch {
+      setError("Brainarium could not mark these changes as reviewed.");
+    }
+  };
+
   const copyPlainSelection = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -1438,6 +1467,9 @@ const App = (): React.JSX.Element => {
       } else if (key === "l" && event.shiftKey) {
         event.preventDefault();
         setIsSidebarCollapsed((current) => !current);
+      } else if (key === "u" && event.shiftKey) {
+        event.preventDefault();
+        setWorkspaceView("changes");
       } else if (key === "g" && event.shiftKey) {
         event.preventDefault();
         setWorkspaceView("connections");
@@ -1680,6 +1712,21 @@ const App = (): React.JSX.Element => {
             </section>
             <nav className="library-navigation" aria-label="Library navigation">
               <p className="section-label">LIBRARY</p>
+              <button
+                aria-current={workspaceView === "changes" ? "page" : undefined}
+                title={`Review changed Markdown notes (${platformShortcuts.changes})`}
+                type="button"
+                onClick={() => setWorkspaceView("changes")}
+              >
+                <Icon name="changes" />
+                Changes
+                {changedPaths.size > 0 && (
+                  <span className="library-change-count">
+                    {changedPaths.size}
+                  </span>
+                )}
+                <kbd>{platformShortcuts.changes}</kbd>
+              </button>
               <button
                 aria-current={workspaceView === "graph" ? "page" : undefined}
                 title={`Open global graph (${platformShortcuts.globalGraph})`}
@@ -1964,7 +2011,24 @@ const App = (): React.JSX.Element => {
               )}
             </aside>
           )}
-          {workspaceView === "connections" ? (
+          {workspaceView === "changes" ? (
+            <ChangesView
+              changed={reviewStates}
+              documentPaths={
+                new Set(
+                  snapshot.documents.map((candidate) => candidate.relativePath),
+                )
+              }
+              onMarkAllReviewed={() => void markAllDocumentsReviewed()}
+              onMarkReviewed={(relativePath) =>
+                void markReviewedAt(relativePath)
+              }
+              onOpenDocument={(relativePath) => void readDocument(relativePath)}
+              requestChangeReview={(relativePath) =>
+                window.brainarium.changeReview(relativePath)
+              }
+            />
+          ) : workspaceView === "connections" ? (
             <section
               className="global-connections"
               aria-labelledby="connections-title"

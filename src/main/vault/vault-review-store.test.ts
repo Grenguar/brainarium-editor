@@ -77,4 +77,51 @@ describe("VaultReviewStore", () => {
       store.review(changedSnapshot.rootPath, "plan.md"),
     ).resolves.toBeUndefined();
   });
+
+  it("clears every changed marker in the vault when marking all reviewed", async () => {
+    const root = await temporaryDirectory();
+    const storage = path.join(await temporaryDirectory(), "review.json");
+    await writeFile(path.join(root, "plan.md"), "First draft.\n");
+    await writeFile(path.join(root, "notes.md"), "Early notes.\n");
+
+    const store = new VaultReviewStore(storage);
+    await store.reconcile(await scanVault(root));
+    await writeFile(path.join(root, "plan.md"), "Revised plan.\n");
+    await writeFile(path.join(root, "notes.md"), "Revised notes.\n");
+    const changedSnapshot = await scanVault(root);
+    await store.reconcile(changedSnapshot);
+
+    const vaultPath = changedSnapshot.rootPath;
+    await expect(store.states(vaultPath)).resolves.toHaveLength(2);
+    await expect(store.markAllReviewed(vaultPath)).resolves.toEqual([]);
+    await expect(store.states(vaultPath)).resolves.toEqual([]);
+    await expect(store.review(vaultPath, "plan.md")).resolves.toBeUndefined();
+    await expect(store.review(vaultPath, "notes.md")).resolves.toBeUndefined();
+  });
+
+  it("serializes marking every note reviewed against a concurrent reconciliation", async () => {
+    const root = await temporaryDirectory();
+    const note = path.join(root, "plan.md");
+    const storage = path.join(await temporaryDirectory(), "review.json");
+    await writeFile(note, "First draft.\n");
+
+    const store = new VaultReviewStore(storage);
+    await store.reconcile(await scanVault(root));
+    await writeFile(note, "Reviewed revision.\n");
+    const changedSnapshot = await scanVault(root);
+
+    await Promise.all([
+      store.reconcile(changedSnapshot),
+      store.markAllReviewed(changedSnapshot.rootPath),
+    ]);
+
+    await expect(store.states(changedSnapshot.rootPath)).resolves.toEqual([]);
+  });
+
+  it("returns no changes when marking all reviewed for an unknown vault", async () => {
+    const storage = path.join(await temporaryDirectory(), "review.json");
+    const store = new VaultReviewStore(storage);
+
+    await expect(store.markAllReviewed("/nowhere")).resolves.toEqual([]);
+  });
 });

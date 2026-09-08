@@ -318,6 +318,16 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "vault:markAllReviewed",
+  async (): Promise<DocumentReviewState[]> => {
+    if (!activeVault) {
+      throw new Error("Open a vault before marking its changes reviewed.");
+    }
+    return vaultReviews().markAllReviewed(activeVault.rootPath);
+  },
+);
+
 ipcMain.handle("vault:linkGraph", async (): Promise<unknown> => {
   if (!activeVault) throw new Error("Open a vault before viewing its graph.");
   return indexer().build(activeVault);

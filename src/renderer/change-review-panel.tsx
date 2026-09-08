@@ -199,6 +199,47 @@ const ChangedText = ({
   );
 };
 
+/**
+ * Renders a set of block changes. Shared by the document review panel and the
+ * Changes view so both present an edit identically; neither owns the markup.
+ */
+export const ChangeList = ({
+  changes,
+}: {
+  changes: BlockChange[];
+}): React.JSX.Element =>
+  changes.length ? (
+    <ol className="change-review-list">
+      {changes.map((change, index) => (
+        <li
+          className={`change-review-card is-${change.kind}`}
+          key={`${change.kind}-${index}`}
+        >
+          <p className="eyebrow">{labelFor(change)}</p>
+          {change.before && (
+            <ChangedText
+              after={change.after?.text}
+              before={change.before.text}
+              kind="before"
+            />
+          )}
+          {change.after && (
+            <ChangedText
+              after={change.after.text}
+              before={change.before?.text}
+              kind="after"
+            />
+          )}
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <p className="change-review-unavailable">
+      This change was detected, but its prior snapshot was too large or
+      unavailable to compare.
+    </p>
+  );
+
 export const ChangeReviewPanel = ({
   panelWidth,
   review,
@@ -271,37 +312,7 @@ export const ChangeReviewPanel = ({
         <p className="change-review-intro">
           Whole blocks stay visible; highlighted words identify the exact edit.
         </p>
-        {changes.length ? (
-          <ol className="change-review-list">
-            {changes.map((change, index) => (
-              <li
-                className={`change-review-card is-${change.kind}`}
-                key={`${change.kind}-${index}`}
-              >
-                <p className="eyebrow">{labelFor(change)}</p>
-                {change.before && (
-                  <ChangedText
-                    after={change.after?.text}
-                    before={change.before.text}
-                    kind="before"
-                  />
-                )}
-                {change.after && (
-                  <ChangedText
-                    after={change.after.text}
-                    before={change.before?.text}
-                    kind="after"
-                  />
-                )}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="change-review-unavailable">
-            This change was detected, but its prior snapshot was too large or
-            unavailable to compare.
-          </p>
-        )}
+        <ChangeList changes={changes} />
       </aside>
     </>
   );
