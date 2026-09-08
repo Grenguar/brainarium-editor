@@ -14,6 +14,7 @@ All notable Brainarium changes are documented here, following the structure of [
 
 ### Added
 
+- Open local PDFs in a polished, read-only in-app viewer with verified bytes and no filesystem URL exposure. (#22)
 - A Linux sandbox preflight and Ubuntu setup guidance that preserve Electron sandboxing. (#53)
 - Downloadable unsigned macOS, Windows, Debian/Ubuntu, and RPM release assets without an Apple signing prerequisite.
 - Cross-platform keyboard shortcuts for vault search, Find in file, and Copy content.
@@ -27,17 +28,22 @@ All notable Brainarium changes are documented here, following the structure of [
 - Safe MCP folder creation, nested file creation, and read-only source-derived graph and connection queries.
 - A source-safe Markdown Insert menu and slash palette for supported block types.
 - Inline note connections, a prose-first reading measure with a wide canvas for tables, code, and images, read-only image documents with fit/zoom controls, and verified image moves into structured vault paths beside the active note's hierarchy.
+- A readable, non-destructive “changed since reviewed” experience for Markdown files: app-support review watermarks, tree indicators, complete affected blocks, word-level emphasis, and an explicit **Mark reviewed** action. (#29)
+- Automatic expansion of the folder path to any externally changed file, so changed notes are immediately discoverable in a deep vault tree.
+- File context actions for copying a file’s canonical full vault path or its content without opening it first.
 
 ### Changed
 
 - Refresh the project README with human and agent quick starts, MCP safety guidance, and the issue-backed roadmap.
 - Product renamed to Brainarium.
+- Make the reader review column responsive on large displays, with a 576–992px drag- and keyboard-resizable width that is remembered after a deliberate resize.
 
 ### Fixed
 
 - Package Windows and Linux installers consistently in the GitHub Release workflow.
 - Keep the active vault, file, and reading position after reload or relaunch.
 - Keep JSON, source code, CSV, preview, and comparison surfaces readable in dark theme.
+- Paste copied vault paths and document content as unstyled plain text in every theme.
 
 ### Security
 

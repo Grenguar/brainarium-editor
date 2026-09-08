@@ -108,11 +108,12 @@ describe("isSupportedVaultDocument", () => {
     "data.JSON",
     "feed.xml",
     "page.HTM",
+    "paper.PDF",
   ])("accepts %s", (fileName) => {
     expect(isSupportedVaultDocument(fileName)).toBe(true);
   });
 
-  it.each(["note.pdf", ".md", "archive.md.bak"])("rejects %s", (fileName) => {
+  it.each(["note.epub", ".md", "archive.md.bak"])("rejects %s", (fileName) => {
     expect(isSupportedVaultDocument(fileName)).toBe(false);
   });
 });

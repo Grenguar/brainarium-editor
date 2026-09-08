@@ -13,7 +13,9 @@ export async function searchVault(
   if (!normalizedQuery) return [];
   const results = await Promise.all(
     snapshot.documents
-      .filter((document) => document.kind !== "image")
+      .filter(
+        (document) => document.kind !== "image" && document.kind !== "pdf",
+      )
       .map(async (document) => {
         const content = await readVaultDocument(
           snapshot,

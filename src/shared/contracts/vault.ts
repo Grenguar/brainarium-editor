@@ -1,5 +1,5 @@
 export type DocumentKind =
-  "markdown" | "csv" | "text" | "json" | "xml" | "html" | "image";
+  "markdown" | "csv" | "text" | "json" | "xml" | "html" | "image" | "pdf";
 
 export type VaultDocument = {
   kind: DocumentKind;
@@ -40,6 +40,7 @@ export type VaultDocumentContent = Pick<
   "kind" | "relativePath" | "title"
 > & {
   image?: VaultImageContent;
+  pdf?: VaultPdfContent;
   text: string;
   version: string;
 };
@@ -83,9 +84,31 @@ export type VaultImageContent = {
     "image/avif" | "image/gif" | "image/jpeg" | "image/png" | "image/webp";
 };
 
+/**
+ * Bytes for one scanned, active-vault PDF. The renderer creates a short-lived
+ * blob URL for Chromium's sandboxed PDF viewer; it never receives a path.
+ */
+export type VaultPdfContent = {
+  bytes: Uint8Array;
+  mimeType: "application/pdf";
+};
+
 export type ImageImportResult = {
   markdown: string;
   relativePath: string;
+};
+
+/** A non-vault, per-file review state derived from App Support snapshots. */
+export type DocumentReviewState = {
+  changed: boolean;
+  changedAt?: number;
+  relativePath: string;
+};
+
+/** The bounded source pair used by the read-only changed-since-review panel. */
+export type MarkdownChangeReview = DocumentReviewState & {
+  currentText?: string;
+  previousText?: string;
 };
 
 export type RecentVault = {

@@ -3,9 +3,13 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Graph from "graphology";
 import Sigma from "sigma";
+import { getDocument, type RenderTask } from "pdfjs-dist/webpack.mjs";
 
 import type {
   BrainariumAppInfo,
+  DocumentReviewState,
+  DocumentKind,
+  MarkdownChangeReview,
   RecentVault,
   VaultDocumentContent,
   VaultLinkGraph,
@@ -16,6 +20,7 @@ import type {
 } from "../shared/contracts/vault";
 
 import { CsvPreview } from "./csv-preview";
+import { ChangeReviewPanel } from "./change-review-panel";
 import { DocumentConflictPanel } from "./document-conflict-panel";
 import {
   documentSessionReducer,
@@ -40,14 +45,34 @@ const platformShortcuts = shortcutLabels(currentShortcutPlatform);
 
 const TreeNode = ({
   activePath,
+  changedPaths,
   node,
+  onFileContextMenu,
   onSelect,
 }: {
   activePath?: string;
+  changedPaths: ReadonlySet<string>;
   node: VaultTreeNode;
+  onFileContextMenu: (
+    relativePath: string,
+    kind: DocumentKind,
+    position: { x: number; y: number },
+  ) => void;
   onSelect: (relativePath: string) => void;
 }): React.JSX.Element => {
-  const [isOpen, setIsOpen] = useState(node.relativePath === "");
+  const containsChangedFile = (current: VaultTreeNode): boolean =>
+    current.kind === "directory"
+      ? current.children.some(containsChangedFile)
+      : changedPaths.has(current.relativePath);
+  const hasChangedDescendant = containsChangedFile(node);
+  const [isOpen, setIsOpen] = useState(
+    node.relativePath === "" || hasChangedDescendant,
+  );
+
+  useEffect(() => {
+    if (hasChangedDescendant) setIsOpen(true);
+  }, [hasChangedDescendant]);
+
   if (node.kind !== "directory") {
     const icon =
       node.kind === "image"
@@ -66,9 +91,26 @@ const TreeNode = ({
           aria-current={activePath === node.relativePath ? "page" : undefined}
           type="button"
           onClick={() => onSelect(node.relativePath)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            onFileContextMenu(node.relativePath, node.kind, {
+              x: event.clientX,
+              y: event.clientY,
+            });
+          }}
         >
-          <span aria-hidden="true">{icon}</span>
+          {node.kind === "pdf" ? (
+            <Icon name="pdf" />
+          ) : (
+            <span aria-hidden="true">{icon}</span>
+          )}
           {node.name}
+          {changedPaths.has(node.relativePath) && (
+            <span
+              aria-label="Changed since reviewed"
+              className="tree-change-dot"
+            />
+          )}
         </button>
       </li>
     );
@@ -91,7 +133,9 @@ const TreeNode = ({
             <TreeNode
               key={child.relativePath}
               activePath={activePath}
+              changedPaths={changedPaths}
               node={child}
+              onFileContextMenu={onFileContextMenu}
               onSelect={onSelect}
             />
           ))}
@@ -291,6 +335,13 @@ type NavigationEntry = {
   relativePath: string;
 };
 
+type FileContextMenu = {
+  kind: DocumentKind;
+  relativePath: string;
+  x: number;
+  y: number;
+};
+
 const documentLabel = (
   relativePath: string,
   snapshot?: VaultSnapshot,
@@ -413,6 +464,220 @@ const ImageDocumentPreview = ({
   );
 };
 
+const PdfDocumentPreview = ({
+  document,
+}: {
+  document: VaultDocumentContent;
+}): React.JSX.Element => {
+  const pdf = document.pdf;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const fitZoom = useRef(100);
+  const hasAppliedInitialFit = useRef(false);
+  const pageDimensions = useRef<{ height: number; width: number }>(undefined);
+  const [pageCount, setPageCount] = useState<number>();
+  const [pageNumber, setPageNumber] = useState(1);
+  const [status, setStatus] = useState("Loading PDF…");
+  const [zoom, setZoom] = useState(110);
+
+  useEffect(() => {
+    setPageNumber(1);
+    setPageCount(undefined);
+    hasAppliedInitialFit.current = false;
+  }, [document.relativePath, document.version]);
+
+  useEffect(() => {
+    if (!pdf || !canvasRef.current) return;
+    const exactBytes = new Uint8Array(pdf.bytes.byteLength);
+    exactBytes.set(pdf.bytes);
+    const loadingTask = getDocument({ data: exactBytes });
+    let cancelled = false;
+    let renderTask: RenderTask | undefined;
+
+    const render = async (): Promise<void> => {
+      try {
+        setStatus("Loading PDF…");
+        const pdfDocument = await loadingTask.promise;
+        if (cancelled) return;
+        setPageCount(pdfDocument.numPages);
+        const page = await pdfDocument.getPage(
+          Math.min(pageNumber, pdfDocument.numPages),
+        );
+        if (cancelled || !canvasRef.current) return;
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        pageDimensions.current = {
+          height: unscaledViewport.height,
+          width: unscaledViewport.width,
+        };
+        const frame = frameRef.current;
+        const fitScale = frame
+          ? Math.min(
+              (frame.clientWidth - 32) / unscaledViewport.width,
+              (frame.clientHeight - 32) / unscaledViewport.height,
+            )
+          : zoom / 100;
+        fitZoom.current = Math.max(25, Math.round(fitScale * 100));
+        if (!hasAppliedInitialFit.current) {
+          hasAppliedInitialFit.current = true;
+          setZoom(fitZoom.current);
+        }
+        const viewport = page.getViewport({ scale: zoom / 100 });
+        const outputScale = window.devicePixelRatio || 1;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Canvas is unavailable.");
+        canvas.height = Math.ceil(viewport.height * outputScale);
+        canvas.style.height = `${Math.ceil(viewport.height)}px`;
+        canvas.style.width = `${Math.ceil(viewport.width)}px`;
+        canvas.width = Math.ceil(viewport.width * outputScale);
+        renderTask = page.render({
+          canvas,
+          canvasContext: context,
+          transform: [outputScale, 0, 0, outputScale, 0, 0],
+          viewport,
+        });
+        await renderTask.promise;
+        if (!cancelled) setStatus("");
+      } catch {
+        if (!cancelled) setStatus("Brainarium could not render this PDF.");
+      }
+    };
+    void render();
+    return () => {
+      cancelled = true;
+      renderTask?.cancel();
+    };
+  }, [pageNumber, pdf, zoom]);
+
+  const fitPage = (): void => {
+    const frame = frameRef.current;
+    const dimensions = pageDimensions.current;
+    if (!frame || !dimensions) return;
+    const nextZoom = Math.max(
+      25,
+      Math.round(
+        Math.min(
+          (frame.clientWidth - 32) / dimensions.width,
+          (frame.clientHeight - 32) / dimensions.height,
+        ) * 100,
+      ),
+    );
+    fitZoom.current = nextZoom;
+    frame.scrollTo({ left: 0, top: 0 });
+    setZoom(nextZoom);
+  };
+
+  const previousPage = (): void => {
+    setPageNumber((page) => Math.max(1, page - 1));
+  };
+
+  const nextPage = (): void => {
+    setPageNumber((page) => Math.min(pageCount ?? page, page + 1));
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+      if (usesPrimaryModifier(currentShortcutPlatform, event)) {
+        if (event.key === "0") {
+          event.preventDefault();
+          fitPage();
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          setZoom((current) => Math.min(200, current + 10));
+        } else if (event.key === "-") {
+          event.preventDefault();
+          setZoom((current) => Math.max(25, current - 10));
+        }
+        return;
+      }
+      if (!event.altKey && !event.ctrlKey && !event.metaKey) {
+        if (event.key === "ArrowLeft" || event.key === "PageUp") {
+          event.preventDefault();
+          previousPage();
+        } else if (event.key === "ArrowRight" || event.key === "PageDown") {
+          event.preventDefault();
+          nextPage();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pageCount, pageNumber, zoom]);
+
+  if (!pdf) return <p role="status">Loading PDF…</p>;
+  return (
+    <section className="pdf-document-preview" aria-label="PDF preview">
+      <header className="pdf-preview-heading">
+        <div>
+          <p className="section-label">READ-ONLY PDF</p>
+          <p>{status || "Rendered locally; nothing leaves this vault."}</p>
+        </div>
+        <div className="pdf-preview-controls" aria-label="PDF controls">
+          <button
+            aria-label="Previous PDF page"
+            disabled={pageNumber <= 1}
+            type="button"
+            onClick={previousPage}
+          >
+            Previous
+          </button>
+          <output aria-live="polite">
+            {pageCount ? `Page ${pageNumber} of ${pageCount}` : "Opening…"}
+          </output>
+          <button
+            aria-label="Next PDF page"
+            disabled={!pageCount || pageNumber >= pageCount}
+            type="button"
+            onClick={nextPage}
+          >
+            Next
+          </button>
+          <button
+            aria-label="Zoom out PDF"
+            disabled={zoom <= 60}
+            title="Zoom out (Cmd/Ctrl+-)"
+            type="button"
+            onClick={() => setZoom((current) => current - 10)}
+          >
+            −
+          </button>
+          <button
+            aria-label="Fit PDF page"
+            title="Fit page (Cmd/Ctrl+0)"
+            type="button"
+            onClick={fitPage}
+          >
+            Fit
+          </button>
+          <button
+            aria-label="Zoom in PDF"
+            disabled={zoom >= 200}
+            title="Zoom in (Cmd/Ctrl++)"
+            type="button"
+            onClick={() => setZoom((current) => current + 10)}
+          >
+            +
+          </button>
+        </div>
+      </header>
+      <div className="pdf-preview-frame" ref={frameRef}>
+        <canvas
+          aria-label={`${document.title} PDF page ${pageNumber}`}
+          ref={canvasRef}
+        />
+      </div>
+    </section>
+  );
+};
+
 type IconName =
   | "back"
   | "connections"
@@ -421,6 +686,7 @@ type IconName =
   | "graph"
   | "menu"
   | "moon"
+  | "pdf"
   | "search"
   | "sun";
 
@@ -437,6 +703,12 @@ const Icon = ({ name }: { name: IconName }): React.JSX.Element => {
     ),
     menu: <path d="M5 7h14M5 12h14M5 17h14" />,
     moon: <path d="M20 15.2A8 8 0 1 1 8.8 4 6.2 6.2 0 0 0 20 15.2Z" />,
+    pdf: (
+      <>
+        <path d="M6 3.75h8.2L18 7.55v12.7H6zM14 3.75v4h4" />
+        <path d="M8.2 15.8h1.35a1.25 1.25 0 0 0 0-2.5H8.2v4M12.1 17.3v-4h1.15a2 2 0 1 1 0 4zM16.15 17.3v-4h2.2M16.15 15.25h1.8" />
+      </>
+    ),
     search: (
       <>
         <circle cx="10.5" cy="10.5" r="5.5" />
@@ -460,6 +732,8 @@ const Icon = ({ name }: { name: IconName }): React.JSX.Element => {
 const App = (): React.JSX.Element => {
   const [appInfo, setAppInfo] = useState<BrainariumAppInfo>(defaultAppInfo);
   const [snapshot, setSnapshot] = useState<VaultSnapshot>();
+  const [reviewStates, setReviewStates] = useState<DocumentReviewState[]>([]);
+  const [changeReview, setChangeReview] = useState<MarkdownChangeReview>();
   const [session, dispatchSession] = useReducer(
     documentSessionReducer,
     undefined,
@@ -500,6 +774,15 @@ const App = (): React.JSX.Element => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => window.innerWidth <= 860,
   );
+  const [fileContextMenu, setFileContextMenu] = useState<FileContextMenu>();
+  const [reviewPanelWidth, setReviewPanelWidth] = useState(() => {
+    const savedWidth = Number(
+      window.localStorage.getItem("brainarium.change-review-panel-width-v2"),
+    );
+    return Number.isFinite(savedWidth)
+      ? Math.max(576, Math.min(992, savedWidth))
+      : undefined;
+  });
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [history, setHistory] = useState<NavigationEntry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -518,6 +801,14 @@ const App = (): React.JSX.Element => {
   const findPositionsInDocument = document
     ? findPositions(editorText, findQuery)
     : [];
+  const changedPaths = new Set(
+    reviewStates
+      .filter((state) => state.changed)
+      .map((state) => state.relativePath),
+  );
+  const preferredReviewPanelWidth =
+    reviewPanelWidth ??
+    Math.max(576, Math.min(992, Math.round(window.innerWidth * 0.4)));
 
   useEffect(() => {
     const collapseForCompactWindow = (): void => {
@@ -528,8 +819,34 @@ const App = (): React.JSX.Element => {
     return () => window.removeEventListener("resize", collapseForCompactWindow);
   }, []);
 
+  useEffect(() => {
+    if (reviewPanelWidth === undefined) return;
+    window.localStorage.setItem(
+      "brainarium.change-review-panel-width-v2",
+      String(reviewPanelWidth),
+    );
+  }, [reviewPanelWidth]);
+
+  useEffect(() => {
+    if (!fileContextMenu) return;
+    const dismiss = (): void => setFileContextMenu(undefined);
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") dismiss();
+    };
+    window.addEventListener("pointerdown", dismiss);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", dismiss);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fileContextMenu]);
+
   const refreshRecents = async (): Promise<void> => {
     setRecentVaults(await window.brainarium.listRecentVaults());
+  };
+
+  const refreshReviewStates = async (): Promise<void> => {
+    setReviewStates(await window.brainarium.reviewStates());
   };
 
   const saveVaultSession = (): void => {
@@ -571,6 +888,7 @@ const App = (): React.JSX.Element => {
     () =>
       window.brainarium.onVaultChanged((nextSnapshot) => {
         setSnapshot(nextSnapshot);
+        void window.brainarium.reviewStates().then(setReviewStates);
         const openDocument = documentRef.current;
         if (!openDocument) return;
         const generation = sessionGenerationRef.current;
@@ -609,6 +927,27 @@ const App = (): React.JSX.Element => {
       }),
     [],
   );
+
+  useEffect(() => {
+    if (!snapshot) return;
+    void refreshReviewStates();
+  }, [snapshot?.rootPath]);
+
+  useEffect(() => {
+    if (document?.kind !== "markdown") {
+      setChangeReview(undefined);
+      return;
+    }
+    let cancelled = false;
+    void window.brainarium
+      .changeReview(document.relativePath)
+      .then((review) => {
+        if (!cancelled) setChangeReview(review);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [document?.kind, document?.relativePath, document?.version, reviewStates]);
 
   useEffect(
     () =>
@@ -889,19 +1228,55 @@ const App = (): React.JSX.Element => {
     });
   };
 
-  const copyDocumentContent = async (): Promise<void> => {
-    if (!document) {
+  const copyDocumentContent = async (relativePath?: string): Promise<void> => {
+    const targetPath = relativePath ?? document?.relativePath;
+    if (!targetPath) {
       return;
     }
     setIsCopying(true);
     try {
-      await window.brainarium.copyDocumentContent(document.relativePath);
+      await window.brainarium.copyDocumentContent(targetPath);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       setError("Brainarium could not copy that file. Try opening it again.");
     } finally {
       setIsCopying(false);
+    }
+  };
+
+  const copyDocumentPath = async (relativePath: string): Promise<void> => {
+    try {
+      await window.brainarium.copyDocumentPath(relativePath);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setError("Brainarium could not copy that path. Try opening it again.");
+    }
+  };
+
+  const openFileContextMenu = (
+    relativePath: string,
+    kind: DocumentKind,
+    position: { x: number; y: number },
+  ): void => {
+    setFileContextMenu({
+      kind,
+      relativePath,
+      x: Math.min(position.x, window.innerWidth - 228),
+      y: Math.min(position.y, window.innerHeight - 112),
+    });
+  };
+
+  const markDocumentReviewed = async (): Promise<void> => {
+    if (!document || document.kind !== "markdown") return;
+    try {
+      setReviewStates(
+        await window.brainarium.markReviewed(document.relativePath),
+      );
+      setChangeReview(undefined);
+    } catch {
+      setError("Brainarium could not mark this document as reviewed.");
     }
   };
 
@@ -996,11 +1371,16 @@ const App = (): React.JSX.Element => {
       } else if (
         key === "c" &&
         event.shiftKey &&
-        documentRef.current?.kind !== "image"
+        documentRef.current?.kind !== "image" &&
+        documentRef.current?.kind !== "pdf"
       ) {
         event.preventDefault();
         void copyDocumentContent();
-      } else if (key === "c" && documentRef.current?.kind !== "image") {
+      } else if (
+        key === "c" &&
+        documentRef.current?.kind !== "image" &&
+        documentRef.current?.kind !== "pdf"
+      ) {
         const target = event.target;
         if (
           target instanceof HTMLInputElement ||
@@ -1266,7 +1646,9 @@ const App = (): React.JSX.Element => {
               <ul>
                 <TreeNode
                   activePath={document?.relativePath}
+                  changedPaths={changedPaths}
                   node={snapshot.tree}
+                  onFileContextMenu={openFileContextMenu}
                   onSelect={(relativePath) => void readDocument(relativePath)}
                 />
               </ul>
@@ -1857,7 +2239,7 @@ const App = (): React.JSX.Element => {
                       {session.status === "saving" ? "Saving…" : "Save"}
                     </button>
                   )}
-                  {document.kind !== "image" && (
+                  {document.kind !== "image" && document.kind !== "pdf" && (
                     <button
                       aria-label={`Copy document content (${platformShortcuts.copyContent})`}
                       title={`Copy document content (${platformShortcuts.copyContent})`}
@@ -1871,6 +2253,13 @@ const App = (): React.JSX.Element => {
                   )}
                 </div>
               </header>
+              {document.kind === "markdown" && changeReview && (
+                <section className="document-change-notice" role="status">
+                  <span aria-hidden="true" className="tree-change-dot" />
+                  Updated since you last reviewed — open Read mode to inspect
+                  it.
+                </section>
+              )}
               {document.kind === "markdown" &&
                 (session.status === "conflict" ||
                   session.status === "missing") && (
@@ -1940,19 +2329,44 @@ const App = (): React.JSX.Element => {
                 </form>
               )}
               {document.kind === "markdown" && viewMode === "preview" ? (
-                <MarkdownReading
-                  activeFindMatch={findIndex}
-                  documents={snapshot.documents}
-                  findQuery={isFindOpen ? findQuery : ""}
-                  onOpenDocument={(relativePath, fragment) =>
-                    void readDocument(relativePath, fragment)
+                <div
+                  className={
+                    changeReview
+                      ? "document-reading-layout has-change-review"
+                      : "document-reading-layout"
                   }
-                  onOpenExternal={openExternalLink}
-                  source={editorText}
-                  sourceRelativePath={document.relativePath}
-                />
+                  style={
+                    changeReview && reviewPanelWidth !== undefined
+                      ? ({
+                          "--change-review-panel-width": `${reviewPanelWidth}px`,
+                        } as React.CSSProperties)
+                      : undefined
+                  }
+                >
+                  <MarkdownReading
+                    activeFindMatch={findIndex}
+                    documents={snapshot.documents}
+                    findQuery={isFindOpen ? findQuery : ""}
+                    onOpenDocument={(relativePath, fragment) =>
+                      void readDocument(relativePath, fragment)
+                    }
+                    onOpenExternal={openExternalLink}
+                    source={editorText}
+                    sourceRelativePath={document.relativePath}
+                  />
+                  {changeReview && (
+                    <ChangeReviewPanel
+                      onMarkReviewed={() => void markDocumentReviewed()}
+                      onPanelWidthChange={setReviewPanelWidth}
+                      panelWidth={preferredReviewPanelWidth}
+                      review={changeReview}
+                    />
+                  )}
+                </div>
               ) : document.kind === "image" && document.image ? (
                 <ImageDocumentPreview document={document} />
+              ) : document.kind === "pdf" && document.pdf ? (
+                <PdfDocumentPreview document={document} />
               ) : document.kind === "markdown" ? (
                 <MarkdownEditor
                   generation={session.generation}
@@ -2001,6 +2415,44 @@ const App = (): React.JSX.Element => {
             </p>
           )}
         </section>
+        {fileContextMenu && (
+          <div
+            aria-label={`Actions for ${fileContextMenu.relativePath}`}
+            className="file-context-menu"
+            onPointerDown={(event) => event.stopPropagation()}
+            role="menu"
+            style={{
+              left: `${fileContextMenu.x}px`,
+              top: `${fileContextMenu.y}px`,
+            }}
+          >
+            <p>{fileContextMenu.relativePath}</p>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                void copyDocumentPath(fileContextMenu.relativePath);
+                setFileContextMenu(undefined);
+              }}
+            >
+              Copy full path
+            </button>
+            <button
+              disabled={
+                fileContextMenu.kind === "image" ||
+                fileContextMenu.kind === "pdf"
+              }
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                void copyDocumentContent(fileContextMenu.relativePath);
+                setFileContextMenu(undefined);
+              }}
+            >
+              Copy content
+            </button>
+          </div>
+        )}
       </main>
     );
   }
@@ -2022,8 +2474,8 @@ const App = (): React.JSX.Element => {
       <h1>A quiet place for the files you already trust.</h1>
       <p className="welcome-copy">
         {appInfo.description} Open any folder of Markdown, CSV, plain text,
-        JSON, XML, HTML, and common image files. Brainarium keeps the vault
-        where it is and leaves its source in your hands.
+        JSON, XML, HTML, PDFs, and common image files. Brainarium keeps the
+        vault where it is and leaves its source in your hands.
       </p>
       <button
         className="primary-action"

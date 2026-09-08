@@ -475,6 +475,28 @@ h1 {
   width: 0.75rem;
 }
 
+.tree-file .ui-icon {
+  color: #d86d45;
+  display: inline-block;
+  height: 1rem;
+  margin-right: 0.35rem;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  vertical-align: -0.13rem;
+  width: 1rem;
+}
+
+.tree-file .tree-change-dot,
+.document-change-notice .tree-change-dot {
+  background: var(--br-accent, #d86d45);
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.48rem;
+  margin-left: 0.45rem;
+  margin-right: 0;
+  width: 0.48rem;
+}
+
 .recent-vaults {
   margin-top: 3rem;
 }
@@ -785,6 +807,195 @@ h1 {
   max-width: 72rem;
 }
 
+.document-reading-layout {
+  min-width: 0;
+}
+
+.document-reading-layout.has-change-review {
+  align-items: start;
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 3rem);
+  grid-template-columns:
+    minmax(0, 1fr) 0.7rem
+    var(--change-review-panel-width, clamp(36rem, 40vw, 62rem));
+}
+
+.document-reading-layout.has-change-review .markdown-reading {
+  max-width: 100%;
+}
+
+.document-change-notice {
+  align-items: center;
+  border-bottom: 1px solid var(--br-border, #c7c5ba);
+  color: var(--br-muted, #59635e);
+  display: flex;
+  font-size: 0.88rem;
+  gap: 0.15rem;
+  margin: 0 0 1.5rem;
+  padding: 0 0 0.8rem;
+}
+
+.change-review-panel {
+  align-self: start;
+  background: var(--br-surface, #f6f3e9);
+  border: 1px solid var(--br-border, #c7c5ba);
+  box-sizing: border-box;
+  max-height: calc(100vh - 7rem);
+  overflow: auto;
+  padding: 1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.change-review-resizer {
+  align-self: stretch;
+  border-left: 1px solid transparent;
+  cursor: col-resize;
+  min-height: 11rem;
+  position: relative;
+}
+
+.change-review-resizer::after {
+  background: var(--br-border, #c7c5ba);
+  border-radius: 999px;
+  content: "";
+  height: 3rem;
+  left: 50%;
+  position: absolute;
+  top: 4rem;
+  transform: translateX(-50%);
+  transition: background 120ms ease;
+  width: 2px;
+}
+
+.change-review-resizer:hover::after,
+.change-review-resizer:focus-visible::after {
+  background: var(--br-accent, #d86d45);
+}
+
+.change-review-resizer:focus-visible {
+  outline: 2px solid var(--br-accent, #d86d45);
+  outline-offset: 2px;
+}
+
+.change-review-heading {
+  align-items: start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.change-review-heading h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.change-review-heading button {
+  background: var(--br-text, #273330);
+  color: var(--br-surface, #f6f3e9);
+  flex: none;
+  font-size: 0.76rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.change-review-intro,
+.change-review-unavailable {
+  color: var(--br-muted, #59635e);
+  font-family: "Avenir Next", Avenir, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.change-review-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.change-review-card {
+  border-left: 3px solid var(--br-border, #c7c5ba);
+  padding: 0.65rem 0.7rem;
+}
+
+.change-review-card.is-added {
+  border-left-color: #568363;
+}
+
+.change-review-card.is-removed {
+  border-left-color: #b45c55;
+}
+
+.change-review-card.is-replaced {
+  border-left-color: var(--br-accent, #d86d45);
+}
+
+.change-review-card .eyebrow {
+  margin: 0 0 0.35rem;
+}
+
+.change-review-text {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.93rem;
+  line-height: 1.55;
+  margin: 0.4rem 0 0;
+  white-space: pre-wrap;
+}
+
+.change-review-text-before {
+  color: var(--br-muted, #59635e);
+}
+
+.change-review-text mark {
+  background: #f4d39a;
+  color: inherit;
+  padding: 0.05em 0;
+}
+
+.change-review-text-before mark {
+  background: #edc7c0;
+  text-decoration: line-through;
+}
+
+.file-context-menu {
+  background: var(--br-surface, #f6f3e9);
+  border: 1px solid var(--br-border, #c7c5ba);
+  box-shadow: 0 0.65rem 1.8rem rgb(39 51 48 / 18%);
+  box-sizing: border-box;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 13.5rem;
+  padding: 0.4rem;
+  position: fixed;
+  z-index: 10;
+}
+
+.file-context-menu p {
+  color: var(--br-muted, #59635e);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0.35rem 0.45rem 0.45rem;
+}
+
+.file-context-menu button {
+  background: transparent;
+  color: var(--br-text, #273330);
+  font-size: 0.82rem;
+  padding: 0.45rem;
+  text-align: left;
+}
+
+.file-context-menu button:hover:not(:disabled),
+.file-context-menu button:focus-visible {
+  background: var(--br-surface-raised, #e8e5dc);
+}
+
 .markdown-reading
   > :is(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, .markdown-properties) {
   max-width: 68ch;
@@ -850,6 +1061,83 @@ h1 {
 .image-preview-frame img.is-zoomed {
   max-height: none;
   max-width: none;
+}
+
+.pdf-document-preview {
+  margin: 0 auto;
+  max-width: 88rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.pdf-preview-heading {
+  align-items: center;
+  border-bottom: 1px solid #c7c5ba;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+}
+
+.pdf-preview-heading .section-label {
+  margin-bottom: 0.25rem;
+}
+
+.pdf-preview-heading p:not(.section-label) {
+  color: #68716c;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.pdf-preview-heading button {
+  background: #e0ddd2;
+  color: #273330;
+  flex: none;
+  min-height: 2.7rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.pdf-preview-heading button:hover {
+  background: #d2cfc4;
+}
+
+.pdf-preview-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: end;
+}
+
+.pdf-preview-controls output {
+  color: #59635e;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  min-width: 7.7rem;
+  text-align: center;
+}
+
+.pdf-preview-frame {
+  align-items: start;
+  background: #e0ddd2;
+  border: 1px solid #c7c5ba;
+  box-shadow: 0 1rem 3rem rgb(39 51 48 / 12%);
+  box-sizing: border-box;
+  height: min(76vh, 70rem);
+  min-height: 34rem;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.65rem;
+  width: 100%;
+}
+
+.pdf-preview-frame canvas {
+  background: #fff;
+  display: block;
+  margin: 0 auto;
+  max-width: none;
+  flex: none;
 }
 
 .markdown-reading h1,
@@ -1610,7 +1898,7 @@ kbd {
   display: none;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .vault-shell {
     grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
   }
@@ -1622,6 +1910,19 @@ kbd {
   .toolbar-actions {
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+
+  .document-reading-layout.has-change-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .change-review-panel {
+    max-height: none;
+    position: static;
+  }
+
+  .change-review-resizer {
+    display: none;
   }
 }
 

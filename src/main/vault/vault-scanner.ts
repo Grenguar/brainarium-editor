@@ -32,6 +32,9 @@ function documentKind(fileName: string): DocumentKind | undefined {
   if (extension === ".html" || extension === ".htm") {
     return "html";
   }
+  if (extension === ".pdf") {
+    return "pdf";
+  }
   if (
     extension === ".avif" ||
     extension === ".gif" ||

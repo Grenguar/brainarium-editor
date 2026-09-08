@@ -16,6 +16,7 @@ import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
 import { VaultSessionStore } from "./vault/vault-session-state";
+import { VaultReviewStore } from "./vault/vault-review-store";
 import { searchVault } from "./vault/vault-search";
 import {
   readVaultImage,
@@ -24,9 +25,12 @@ import {
 } from "./vault/vault-image-reader";
 import { scanVault } from "./vault/vault-scanner";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
+import { readVaultPdfDocument } from "./vault/vault-pdf-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
 import type {
   DocumentSaveInput,
+  DocumentReviewState,
+  MarkdownChangeReview,
   RestoredVaultSession,
   VaultImageRequest,
   VaultSessionState,
@@ -40,6 +44,7 @@ let mainWindow: BrowserWindow | undefined;
 let vaultWatcher: VaultWatcher | undefined;
 let graphRebuildGeneration = 0;
 let vaultSessionStore: VaultSessionStore | undefined;
+let vaultReviewStore: VaultReviewStore | undefined;
 
 const appDescription = "A local-first editor for the files you already trust.";
 
@@ -48,6 +53,12 @@ const appInfo = () => ({
   name: app.getName(),
   version: app.getVersion(),
 });
+
+/** Replace every clipboard representation so pasted vault data is plain text. */
+const copyPlainText = (text: string): void => {
+  clipboard.clear();
+  clipboard.writeText(text);
+};
 
 // Squirrel starts the app only to create or remove its Windows shortcut.
 // Quitting immediately keeps normal startup and installer maintenance separate.
@@ -63,6 +74,13 @@ const vaultSessions = (): VaultSessionStore => {
     path.join(app.getPath("userData"), "vault-session.json"),
   );
   return vaultSessionStore;
+};
+
+const vaultReviews = (): VaultReviewStore => {
+  vaultReviewStore ??= new VaultReviewStore(
+    path.join(app.getPath("userData"), "vault-review-v1.json"),
+  );
+  return vaultReviewStore;
 };
 
 const indexer = (): RustIndexerService =>
@@ -130,6 +148,7 @@ async function openVault(
   const snapshot = await scanVault(vaultPath);
   await recentVaults().remember(snapshot.rootPath);
   await vaultSessions().rememberVault(snapshot.rootPath);
+  await vaultReviews().reconcile(snapshot);
   activeVault = snapshot;
   vaultWatcher?.start(snapshot);
   return snapshot;
@@ -137,9 +156,9 @@ async function openVault(
 
 const createWindow = (): void => {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
+    width: 1440,
+    height: 900,
+    minWidth: 960,
     minHeight: 600,
     title: `${app.getName()} ${app.getVersion()}`,
     webPreferences: {
@@ -254,7 +273,48 @@ ipcMain.handle(
     if (!activeVault || !isSaveInput(input)) {
       throw new Error("No valid document save is available.");
     }
-    return saveVaultDocument(activeVault, input);
+    const result = await saveVaultDocument(activeVault, input);
+    if (result.status === "saved") {
+      await vaultReviews().recordReviewedText(
+        activeVault.rootPath,
+        result.document.relativePath,
+        result.document.text,
+      );
+    }
+    return result;
+  },
+);
+
+ipcMain.handle(
+  "vault:reviewStates",
+  async (): Promise<DocumentReviewState[]> =>
+    activeVault ? vaultReviews().states(activeVault.rootPath) : [],
+);
+
+ipcMain.handle(
+  "document:changeReview",
+  async (
+    _event,
+    relativePath: unknown,
+  ): Promise<MarkdownChangeReview | undefined> => {
+    if (!activeVault || typeof relativePath !== "string") {
+      throw new Error("Open a Markdown document before viewing its changes.");
+    }
+    const document = activeVault.documents.find(
+      (candidate) => candidate.relativePath === relativePath,
+    );
+    if (document?.kind !== "markdown") return undefined;
+    return vaultReviews().review(activeVault.rootPath, relativePath);
+  },
+);
+
+ipcMain.handle(
+  "document:markReviewed",
+  async (_event, relativePath: unknown): Promise<DocumentReviewState[]> => {
+    if (!activeVault || typeof relativePath !== "string") {
+      throw new Error("Open a Markdown document before marking it reviewed.");
+    }
+    return vaultReviews().markReviewed(activeVault.rootPath, relativePath);
   },
 );
 
@@ -282,9 +342,13 @@ ipcMain.handle(
     const document = activeVault.documents.find(
       (candidate) => candidate.relativePath === relativePath,
     );
-    return document?.kind === "image"
-      ? readVaultImageDocument(activeVault, relativePath)
-      : readVaultDocument(activeVault, relativePath);
+    if (document?.kind === "image") {
+      return readVaultImageDocument(activeVault, relativePath);
+    }
+    if (document?.kind === "pdf") {
+      return readVaultPdfDocument(activeVault, relativePath);
+    }
+    return readVaultDocument(activeVault, relativePath);
   },
 );
 
@@ -345,8 +409,30 @@ ipcMain.handle(
     if (typeof relativePath !== "string" || !activeVault) {
       throw new Error("No active vault document is available.");
     }
+    const selected = activeVault.documents.find(
+      (document) => document.relativePath === relativePath,
+    );
+    if (selected?.kind === "pdf" || selected?.kind === "image") {
+      throw new Error("This document has no text content to copy.");
+    }
     const document = await readVaultDocument(activeVault, relativePath);
-    clipboard.writeText(document.text);
+    copyPlainText(document.text);
+  },
+);
+
+ipcMain.handle(
+  "document:copyPath",
+  async (_event, relativePath: unknown): Promise<void> => {
+    if (typeof relativePath !== "string" || !activeVault) {
+      throw new Error("No active vault document is available.");
+    }
+    const document = activeVault.documents.find(
+      (candidate) => candidate.relativePath === relativePath,
+    );
+    if (!document) {
+      throw new Error("That document is no longer in the active vault.");
+    }
+    copyPlainText(path.join(activeVault.rootPath, document.relativePath));
   },
 );
 
@@ -372,8 +458,9 @@ app.whenReady().then(() => {
     copyright: "Copyright © 2026 Brainarium contributors",
     version: `v${app.getVersion()}`,
   });
-  vaultWatcher = new VaultWatcher((snapshot) => {
+  vaultWatcher = new VaultWatcher(async (snapshot) => {
     const previousSnapshot = activeVault;
+    await vaultReviews().reconcile(snapshot);
     activeVault = snapshot;
     mainWindow?.webContents.send("vault:changed", snapshot);
     void refreshCachedGraphAfterMarkdownChange(previousSnapshot, snapshot);
