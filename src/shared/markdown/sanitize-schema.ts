@@ -79,3 +79,23 @@ export const brainariumSanitizeSchema: Schema = {
     "ul",
   ],
 };
+
+/**
+ * Print variant used when the main process renders a document to PDF.
+ *
+ * The reading view strips every image `src` (`protocols.src: []`) because it
+ * swaps in a LocalImage component that fetches bytes over IPC. A printed
+ * document has no such escape hatch, so the exporter inlines verified image
+ * bytes as `data:` URIs before sanitizing and this schema permits exactly that
+ * one protocol. Without it every image would be silently dropped from the PDF.
+ *
+ * `brainarium-wiki:` links are dropped as well: they resolve inside the app and
+ * would be dead links on paper.
+ */
+export const printSanitizeSchema: Schema = {
+  ...brainariumSanitizeSchema,
+  protocols: {
+    href: ["http", "https"],
+    src: ["data"],
+  },
+};
