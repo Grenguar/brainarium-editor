@@ -2105,6 +2105,35 @@ kbd {
   text-align: center;
 }
 
+.serve-details {
+  background: var(--br-surface-raised);
+  border: 1px solid var(--br-border);
+  border-radius: 0.45rem;
+  font-size: 0.82rem;
+  margin: 0.5rem 0.75rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.serve-details p {
+  color: var(--br-muted);
+  margin: 0 0 0.45rem;
+}
+
+.serve-details p:last-child {
+  margin-bottom: 0;
+}
+
+.serve-code {
+  color: var(--br-text) !important;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 1.3rem;
+  letter-spacing: 0.22em;
+}
+
+.serve-hint code {
+  overflow-wrap: anywhere;
+}
+
 .changes-view {
   display: flex;
   flex-direction: column;

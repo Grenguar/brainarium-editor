@@ -15,6 +15,7 @@ import type {
   VaultLinkGraph,
   VaultSearchResult,
   VaultSessionState,
+  VaultServeStatus,
   VaultSnapshot,
   VaultTreeNode,
 } from "../shared/contracts/vault";
@@ -703,6 +704,7 @@ type IconName =
   | "moon"
   | "pdf"
   | "search"
+  | "serve"
   | "sun";
 
 const Icon = ({ name }: { name: IconName }): React.JSX.Element => {
@@ -727,6 +729,7 @@ const Icon = ({ name }: { name: IconName }): React.JSX.Element => {
         <path d="M8.2 15.8h1.35a1.25 1.25 0 0 0 0-2.5H8.2v4M12.1 17.3v-4h1.15a2 2 0 1 1 0 4zM16.15 17.3v-4h2.2M16.15 15.25h1.8" />
       </>
     ),
+    serve: <path d="M4 6.5h16v5H4zM4 14.5h16v3.5H4M7.5 9h.01M7.5 16.2h.01" />,
     search: (
       <>
         <circle cx="10.5" cy="10.5" r="5.5" />
@@ -765,6 +768,9 @@ const App = (): React.JSX.Element => {
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedFileName, setExportedFileName] = useState<string>();
+  const [serveStatus, setServeStatus] = useState<VaultServeStatus>({
+    running: false,
+  });
   const [viewMode, setViewMode] = useState<"preview" | "editor">("preview");
   const [editorMode, setEditorMode] = useState<MarkdownEditorMode>("assisted");
   const [isReloading, setIsReloading] = useState(false);
@@ -962,6 +968,10 @@ const App = (): React.JSX.Element => {
   useEffect(() => {
     if (!snapshot) return;
     void refreshReviewStates();
+  }, [snapshot?.rootPath]);
+
+  useEffect(() => {
+    void window.brainarium.serveStatus().then(setServeStatus);
   }, [snapshot?.rootPath]);
 
   useEffect(() => {
@@ -1362,6 +1372,18 @@ const App = (): React.JSX.Element => {
       setChangeReview(undefined);
     } catch {
       setError("Brainarium could not mark these changes as reviewed.");
+    }
+  };
+
+  const toggleServing = async (): Promise<void> => {
+    try {
+      setServeStatus(
+        serveStatus.running
+          ? await window.brainarium.stopServing()
+          : await window.brainarium.startServing(),
+      );
+    } catch {
+      setError("Brainarium could not change how this vault is shared.");
     }
   };
 
@@ -1791,7 +1813,40 @@ const App = (): React.JSX.Element => {
                 <Icon name="files" />
                 {isChoosing ? "Opening vault…" : "Open another vault"}
               </button>
+              <button
+                aria-pressed={serveStatus.running}
+                title={
+                  serveStatus.running
+                    ? "Stop serving this vault"
+                    : "Read this vault on another device on your tailnet"
+                }
+                type="button"
+                onClick={() => void toggleServing()}
+              >
+                <Icon name="serve" />
+                {serveStatus.running
+                  ? "Stop sharing"
+                  : "Read on another device"}
+              </button>
             </nav>
+            {serveStatus.running && (
+              <section
+                className="serve-details"
+                aria-label="Reading on another device"
+              >
+                <p className="serve-code">{serveStatus.code}</p>
+                <p>
+                  Enter this code on the other device. It reads only, and
+                  nothing is uploaded anywhere.
+                </p>
+                <p className="serve-hint">
+                  Listening on 127.0.0.1:{serveStatus.port}. To reach it from a
+                  tablet, run{" "}
+                  <code>tailscale serve --bg {serveStatus.port}</code> and open
+                  the address it prints.
+                </p>
+              </section>
+            )}
             {recentVaults.length > 0 && (
               <nav className="recent-vaults" aria-label="Recent vaults">
                 <button
