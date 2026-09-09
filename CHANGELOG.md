@@ -7,10 +7,12 @@ All notable Brainarium changes are documented here, following the structure of [
 ### Added
 
 - A vault-wide Changes inbox listing every Markdown note edited since it was last reviewed, with per-folder change counts in the file tree, expandable diffs, and a confirmed Mark all as read that leaves files on disk untouched. (#28)
+- Read an opened vault on a tablet or phone. An opt-in, read-only web view renders your notes with the desktop reading experience, binds only to loopback, and is reached over your own Tailscale network with a pairing code. No account, no cloud storage, nothing uploaded. (#38)
 - Export any Markdown, CSV, text, JSON, XML, or HTML document to PDF, from the document toolbar or a file's context menu. Markdown keeps the reading view's formatting and inlines verified vault images; CSV prints as a table whose header repeats across pages. Exports use the document as saved on disk and write only where you choose.
 
 ### Fixed
 
+- Correct the emitted-HTML sanitize rationale: an empty protocol list disables filtering for that attribute rather than forbidding every protocol, so the reading schema never blocked remote image sources on its own — the reading view's image component does. Emitted HTML now uses a schema that filters explicitly.
 - Serialize review-store writes so a watcher reconciliation can no longer overwrite a note you just marked reviewed.
 
 ## [0.1.7] - 2026-08-30

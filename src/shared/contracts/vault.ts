@@ -67,7 +67,16 @@ export type DocumentSaveResult =
     }
   | { relativePath: string; status: "missing" };
 
-/** A narrowly-scoped local image request made by the rendered Markdown view. */
+/**
+ * State of the opt-in read-only vault server.
+ *
+ * The port is loopback-only; reaching it from another device is left to
+ * `tailscale serve`, so no externally reachable socket is ever opened. The
+ * pairing code is shown once in the app and typed on the reading device.
+ */
+export type VaultServeStatus =
+  { code: string; port: number; running: true } | { running: false };
+
 /**
  * The renderer asks for an export by path only. It supplies neither markup nor
  * a destination: the main process re-reads the saved document, builds the
@@ -89,6 +98,7 @@ export type DocumentExportResult =
   | { kind: DocumentKind; status: "unsupported" }
   | { relativePath: string; status: "missing" };
 
+/** A narrowly-scoped local image request made by the rendered Markdown view. */
 export type VaultImageRequest = {
   assetPath: string;
   sourceRelativePath: string;

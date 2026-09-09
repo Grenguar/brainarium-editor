@@ -4,6 +4,7 @@ import type {
   BrainariumAppInfo,
   DocumentExportRequest,
   DocumentExportResult,
+  VaultServeStatus,
   DocumentSaveInput,
   DocumentSaveResult,
   DocumentReviewState,
@@ -83,6 +84,12 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:reviewStates"),
   markAllReviewed: (): Promise<DocumentReviewState[]> =>
     ipcRenderer.invoke("vault:markAllReviewed"),
+  serveStatus: (): Promise<VaultServeStatus> =>
+    ipcRenderer.invoke("vault:serveStatus"),
+  startServing: (): Promise<VaultServeStatus> =>
+    ipcRenderer.invoke("vault:serveStart"),
+  stopServing: (): Promise<VaultServeStatus> =>
+    ipcRenderer.invoke("vault:serveStop"),
   exportDocumentPdf: (
     request: DocumentExportRequest,
   ): Promise<DocumentExportResult> =>
@@ -111,6 +118,9 @@ export type BrainariumApi = {
     request: DocumentExportRequest,
   ): Promise<DocumentExportResult>;
   markAllReviewed(): Promise<DocumentReviewState[]>;
+  serveStatus(): Promise<VaultServeStatus>;
+  startServing(): Promise<VaultServeStatus>;
+  stopServing(): Promise<VaultServeStatus>;
   reviewStates(): Promise<DocumentReviewState[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
   saveDocument(input: DocumentSaveInput): Promise<DocumentSaveResult>;
