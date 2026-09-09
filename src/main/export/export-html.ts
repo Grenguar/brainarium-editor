@@ -8,6 +8,8 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 
+import { remarkWikiLinks } from "../../shared/markdown/remark-wiki-links";
+
 import type { VaultDocumentContent } from "../../shared/contracts/vault";
 import { nonEmptyCells, parseCsv, toCsvTable } from "../../shared/csv";
 import { emittedHtmlSanitizeSchema } from "../../shared/markdown/sanitize-schema";
@@ -17,14 +19,17 @@ import { printStyles } from "./print-styles";
 export const MAX_CSV_ROWS = 1_000;
 export const MAX_CSV_COLUMNS = 40;
 
+const PRINT_CSP =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src 'none'";
+
 /**
- * Resolves a document-relative image reference to an inline `data:` URI, or
- * undefined when it cannot be exported. Injected so the whole builder stays
- * pure and testable without Electron or the filesystem.
+ * Resolves a document-relative image reference to a value fit for `src`, or
+ * undefined when it cannot be rendered. Injected so the builder stays pure and
+ * testable: the exporter returns a `data:` URI, the server a same-origin path.
  */
 export type InlineImage = (source: string) => Promise<string | undefined>;
 
-type HastNode = {
+export type HastNode = {
   children?: HastNode[];
   properties?: Record<string, unknown>;
   tagName?: string;
@@ -32,71 +37,109 @@ type HastNode = {
   value?: string;
 };
 
-const escapeHtml = (value: string): string =>
+/** Runs after raw HTML is parsed and before sanitization. */
+export type HastTransform = (tree: HastNode) => Promise<void> | void;
+
+export type DocumentHtmlOptions = {
+  /** Content-Security-Policy for the emitted page. */
+  csp: string;
+  /** Rendered above the document body. */
+  header?: string;
+  resolveImageSrc: InlineImage;
+  /** Inlined into a <style> element; the page never loads a stylesheet. */
+  styles: string;
+  /** Substituted when an image cannot be resolved. */
+  missingImageLabel?: string;
+  /** Applied in order, after rehype-raw and before sanitize. */
+  transforms?: HastTransform[];
+  /**
+   * Parses `[[Note]]` into links. Off for print, where a resolved wiki link
+   * would only be a dead reference on paper; on for the server, which rewrites
+   * them to real routes.
+   */
+  wikiLinks?: boolean;
+};
+
+export const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+export const visitElements = (
+  tree: HastNode,
+  tagName: string,
+  visit: (node: HastNode) => void,
+): void => {
+  if (tree.type === "element" && tree.tagName === tagName) visit(tree);
+  for (const child of tree.children ?? []) visitElements(child, tagName, visit);
+};
+
 /**
- * Rewrites local image sources to inline data URIs before sanitization.
+ * Rewrites local image sources to whatever the caller's resolver returns.
  *
- * Order matters: the print schema only permits the `data:` protocol, so an
- * image still holding its original relative source when sanitize runs would
- * lose its `src` and render as an empty box.
+ * Order matters: `emittedHtmlSanitizeSchema` permits only the `data:` protocol
+ * and schemeless paths, so a source still holding a remote reference when
+ * sanitize runs loses its `src` and renders as an empty box.
  */
-const inlineImages =
-  (resolve: InlineImage) =>
-  () =>
-  async (tree: HastNode): Promise<void> => {
+export const inlineImages =
+  (resolve: InlineImage, missingLabel = "image not exported"): HastTransform =>
+  async (tree) => {
     const images: HastNode[] = [];
-    const collect = (node: HastNode): void => {
-      if (node.type === "element" && node.tagName === "img") images.push(node);
-      for (const child of node.children ?? []) collect(child);
-    };
-    collect(tree);
+    visitElements(tree, "img", (node) => images.push(node));
 
     for (const image of images) {
       const source = image.properties?.src;
       if (typeof source !== "string") continue;
-      let inlined: string | undefined;
+      let resolved: string | undefined;
       try {
-        inlined = await resolve(source);
+        resolved = await resolve(source);
       } catch {
-        inlined = undefined;
+        resolved = undefined;
       }
-      if (inlined) {
-        image.properties = { ...image.properties, src: inlined };
+      if (resolved) {
+        image.properties = { ...image.properties, src: resolved };
       } else {
-        // Losing one asset must never cost the reader the whole export.
+        // Losing one asset must never cost the reader the whole document.
         delete image.properties?.src;
         image.tagName = "span";
         image.children = [
-          { type: "text", value: `[image not exported: ${source}]` },
+          { type: "text", value: `[${missingLabel}: ${source}]` },
         ];
       }
     }
   };
 
+const applyTransforms =
+  (transforms: HastTransform[]) => () => async (tree: HastNode) => {
+    for (const transform of transforms) await transform(tree);
+  };
+
 const markdownToHtml = async (
   text: string,
-  resolve: InlineImage,
+  options: DocumentHtmlOptions,
 ): Promise<string> => {
-  const file = await unified()
+  const transforms = [
+    inlineImages(options.resolveImageSrc, options.missingImageLabel),
+    ...(options.transforms ?? []),
+  ];
+  const pipeline = unified()
     .use(remarkParse)
     .use(remarkFrontmatter)
-    .use(remarkGfm)
+    .use(remarkGfm);
+  if (options.wikiLinks) pipeline.use(remarkWikiLinks);
+  const file = await pipeline
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
-    .use(inlineImages(resolve))
+    .use(applyTransforms(transforms))
     .use(rehypeSanitize, emittedHtmlSanitizeSchema)
     .use(rehypeStringify)
     .process(text);
   return String(file);
 };
 
-/** Vault HTML is inert source everywhere else in Brainarium; printing is no
+/** Vault HTML is inert source everywhere else in Brainarium; emitted HTML is no
  * exception, so it is parsed and sanitized rather than passed through. */
 const htmlToSafeHtml = async (text: string): Promise<string> => {
   const file = await unified()
@@ -157,11 +200,11 @@ const csvToHtml = (text: string): string => {
 
 const bodyFor = async (
   document: VaultDocumentContent,
-  resolve: InlineImage,
+  options: DocumentHtmlOptions,
 ): Promise<string> => {
   switch (document.kind) {
     case "markdown":
-      return markdownToHtml(document.text, resolve);
+      return markdownToHtml(document.text, options);
     case "csv":
       return csvToHtml(document.text);
     case "html":
@@ -172,32 +215,47 @@ const bodyFor = async (
 };
 
 /**
- * Builds the complete, self-contained document handed to the hidden print
- * window. It carries its own restrictive CSP and never references the network:
- * the print window runs with JavaScript disabled, so nothing here may depend on
- * scripting or webfont loading.
+ * Builds a complete, self-contained HTML page for one vault document.
+ *
+ * The page carries its own restrictive CSP, inlines its stylesheet, and never
+ * references the network. Callers supply the styles, the policy, and how an
+ * image reference becomes a `src`; nothing here knows whether the result will
+ * be printed or served.
  */
-export const buildPrintDocument = async (
+export const buildDocumentHtml = async (
   document: VaultDocumentContent,
-  resolve: InlineImage,
+  options: DocumentHtmlOptions,
 ): Promise<string> => {
-  const body = await bodyFor(document, resolve);
+  const body = await bodyFor(document, options);
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="${options.csp}">
 <title>${escapeHtml(document.title)}</title>
-<style>${printStyles}</style>
+<style>${options.styles}</style>
 </head>
 <body>
-<header class="export-header">
-<h1>${escapeHtml(document.title)}</h1>
-<p class="export-path">${escapeHtml(document.relativePath)}</p>
-</header>
+${options.header ?? ""}
 <main>
 ${body}
 </main>
 </body>
 </html>`;
 };
+
+/** Print preset: paginated styles, image bytes inlined as data URIs. */
+export const buildPrintDocument = async (
+  document: VaultDocumentContent,
+  resolve: InlineImage,
+): Promise<string> =>
+  buildDocumentHtml(document, {
+    csp: PRINT_CSP,
+    header: `<header class="export-header">
+<h1>${escapeHtml(document.title)}</h1>
+<p class="export-path">${escapeHtml(document.relativePath)}</p>
+</header>`,
+    resolveImageSrc: resolve,
+    styles: printStyles,
+  });

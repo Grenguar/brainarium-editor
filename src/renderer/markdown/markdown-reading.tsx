@@ -12,8 +12,8 @@ import {
   resolveMarkdownLink,
   resolveWikiLink,
   type MarkdownLinkResolution,
-} from "./link-resolver";
-import { remarkWikiLinks } from "./remark-wiki-links";
+} from "../../shared/markdown/link-resolver";
+import { remarkWikiLinks } from "../../shared/markdown/remark-wiki-links";
 import { brainariumSanitizeSchema } from "../../shared/markdown/sanitize-schema";
 
 type DocumentNavigator = (relativePath: string, fragment?: string) => void;

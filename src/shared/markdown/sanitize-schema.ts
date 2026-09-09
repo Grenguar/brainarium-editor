@@ -103,6 +103,12 @@ export const brainariumSanitizeSchema: Schema = {
  */
 export const emittedHtmlSanitizeSchema: Schema = {
   ...brainariumSanitizeSchema,
+  attributes: {
+    ...brainariumSanitizeSchema.attributes,
+    // An unresolvable in-vault link becomes an inert span. Only this one class
+    // value is permitted, so vault content cannot inject arbitrary classes.
+    span: [["className", "wiki-link-missing"]],
+  },
   protocols: {
     href: ["http", "https"],
     src: ["data"],
