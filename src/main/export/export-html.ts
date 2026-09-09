@@ -10,7 +10,7 @@ import { unified } from "unified";
 
 import type { VaultDocumentContent } from "../../shared/contracts/vault";
 import { nonEmptyCells, parseCsv, toCsvTable } from "../../shared/csv";
-import { printSanitizeSchema } from "../../shared/markdown/sanitize-schema";
+import { emittedHtmlSanitizeSchema } from "../../shared/markdown/sanitize-schema";
 import { printStyles } from "./print-styles";
 
 /** Rows and columns beyond these bounds are dropped, with a stated notice. */
@@ -90,7 +90,7 @@ const markdownToHtml = async (
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(inlineImages(resolve))
-    .use(rehypeSanitize, printSanitizeSchema)
+    .use(rehypeSanitize, emittedHtmlSanitizeSchema)
     .use(rehypeStringify)
     .process(text);
   return String(file);
@@ -101,7 +101,7 @@ const markdownToHtml = async (
 const htmlToSafeHtml = async (text: string): Promise<string> => {
   const file = await unified()
     .use(rehypeParse, { fragment: true })
-    .use(rehypeSanitize, printSanitizeSchema)
+    .use(rehypeSanitize, emittedHtmlSanitizeSchema)
     .use(rehypeStringify)
     .process(text);
   return String(file);

@@ -81,18 +81,27 @@ export const brainariumSanitizeSchema: Schema = {
 };
 
 /**
- * Print variant used when the main process renders a document to PDF.
+ * Schema for HTML the main process emits as a string — the PDF exporter and the
+ * read-only vault server — where there is no React component to vet URLs.
  *
- * The reading view strips every image `src` (`protocols.src: []`) because it
- * swaps in a LocalImage component that fetches bytes over IPC. A printed
- * document has no such escape hatch, so the exporter inlines verified image
- * bytes as `data:` URIs before sanitizing and this schema permits exactly that
- * one protocol. Without it every image would be silently dropped from the PDF.
+ * The reading view never renders an `img` directly: it substitutes a LocalImage
+ * component that refuses any source carrying a scheme and fetches bytes over
+ * IPC instead. That component, not `brainariumSanitizeSchema`, is what keeps
+ * remote images out of the reader. The reading schema's empty `protocols.src`
+ * list does not forbid every protocol — an empty list disables protocol
+ * filtering for that attribute altogether, so `http:` and `javascript:` sources
+ * pass through it untouched. See sanitize-schema.test.ts, which pins this.
  *
- * `brainarium-wiki:` links are dropped as well: they resolve inside the app and
- * would be dead links on paper.
+ * Emitted HTML has no such component, so this schema names the protocols
+ * explicitly: `data:` for the bytes the exporter inlines, and nothing else.
+ * Relative and root-relative paths carry no scheme and are unaffected, which is
+ * how the server's `/asset/...` sources survive.
+ *
+ * `brainarium-wiki:` hrefs are dropped: they resolve only inside the app, so
+ * they are rewritten to real targets before sanitizing, and any that remain are
+ * dead links.
  */
-export const printSanitizeSchema: Schema = {
+export const emittedHtmlSanitizeSchema: Schema = {
   ...brainariumSanitizeSchema,
   protocols: {
     href: ["http", "https"],
