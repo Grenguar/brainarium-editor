@@ -12,6 +12,7 @@ import {
 } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 
+import { exportDocumentToPdf } from "./export/document-pdf-export";
 import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
@@ -28,6 +29,8 @@ import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { readVaultPdfDocument } from "./vault/vault-pdf-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
 import type {
+  DocumentExportRequest,
+  DocumentExportResult,
   DocumentSaveInput,
   DocumentReviewState,
   MarkdownChangeReview,
@@ -318,6 +321,26 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "document:exportPdf",
+  async (_event, request: unknown): Promise<DocumentExportResult> => {
+    if (!activeVault || !isDocumentExportRequest(request)) {
+      throw new Error("Open a document before exporting it to PDF.");
+    }
+    return exportDocumentToPdf(activeVault, request.relativePath, mainWindow);
+  },
+);
+
+ipcMain.handle(
+  "vault:markAllReviewed",
+  async (): Promise<DocumentReviewState[]> => {
+    if (!activeVault) {
+      throw new Error("Open a vault before marking its changes reviewed.");
+    }
+    return vaultReviews().markAllReviewed(activeVault.rootPath);
+  },
+);
+
 ipcMain.handle("vault:linkGraph", async (): Promise<unknown> => {
   if (!activeVault) throw new Error("Open a vault before viewing its graph.");
   return indexer().build(activeVault);
@@ -490,6 +513,13 @@ function isSaveInput(value: unknown): value is DocumentSaveInput {
   return ["baseVersion", "relativePath", "text"].every(
     (key) => typeof input[key] === "string",
   );
+}
+
+function isDocumentExportRequest(
+  value: unknown,
+): value is DocumentExportRequest {
+  if (!value || typeof value !== "object") return false;
+  return typeof (value as Record<string, unknown>).relativePath === "string";
 }
 
 function isVaultImageRequest(value: unknown): value is VaultImageRequest {

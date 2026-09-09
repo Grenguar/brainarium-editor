@@ -44,9 +44,88 @@ const sha256 = (bytes: Uint8Array): string =>
  * into the selected folder, so MCP clients and Git do not see review state.
  */
 export class VaultReviewStore {
+  private queue: Promise<void> = Promise.resolve();
+
   constructor(private readonly storagePath: string) {}
 
   async reconcile(snapshot: VaultSnapshot): Promise<DocumentReviewState[]> {
+    return this.exclusive(() => this.reconcileUnlocked(snapshot));
+  }
+
+  async states(vaultPath: string): Promise<DocumentReviewState[]> {
+    return this.exclusive(async () => {
+      const store = await this.read();
+      return reviewStates(store.vaults[vaultPath]);
+    });
+  }
+
+  async review(
+    vaultPath: string,
+    relativePath: string,
+  ): Promise<MarkdownChangeReview | undefined> {
+    return this.exclusive(async () => {
+      const store = await this.read();
+      const file = store.vaults[vaultPath]?.files[relativePath];
+      if (!file || file.current.sha256 === file.lastReviewed.sha256)
+        return undefined;
+      return {
+        changed: true,
+        changedAt: file.current.capturedAt,
+        currentText: file.current.text,
+        previousText: file.lastReviewed.text,
+        relativePath,
+      };
+    });
+  }
+
+  async markReviewed(
+    vaultPath: string,
+    relativePath: string,
+  ): Promise<DocumentReviewState[]> {
+    return this.exclusive(async () => {
+      const store = await this.read();
+      const vault = store.vaults[vaultPath];
+      const file = vault?.files[relativePath];
+      if (file) file.lastReviewed = file.current;
+      await this.write(store);
+      return reviewStates(vault);
+    });
+  }
+
+  /**
+   * Clears every changed marker for a vault in one write. Only the App Support
+   * baseline moves: files on disk and any unsaved editor draft are untouched.
+   */
+  async markAllReviewed(vaultPath: string): Promise<DocumentReviewState[]> {
+    return this.exclusive(async () => {
+      const store = await this.read();
+      const vault = store.vaults[vaultPath];
+      if (!vault) return [];
+      for (const file of Object.values(vault.files)) {
+        file.lastReviewed = file.current;
+      }
+      await this.write(store);
+      return reviewStates(vault);
+    });
+  }
+
+  async recordReviewedText(
+    vaultPath: string,
+    relativePath: string,
+    text: string,
+  ): Promise<void> {
+    return this.exclusive(async () => {
+      const store = await this.read();
+      const vault = (store.vaults[vaultPath] ??= { files: {} });
+      const content = captured(Buffer.from(text, "utf8"));
+      vault.files[relativePath] = { current: content, lastReviewed: content };
+      await this.write(store);
+    });
+  }
+
+  private async reconcileUnlocked(
+    snapshot: VaultSnapshot,
+  ): Promise<DocumentReviewState[]> {
     const store = await this.read();
     const vault = (store.vaults[snapshot.rootPath] ??= { files: {} });
     const markdown = snapshot.documents.filter(
@@ -80,50 +159,13 @@ export class VaultReviewStore {
     return reviewStates(vault);
   }
 
-  async states(vaultPath: string): Promise<DocumentReviewState[]> {
-    const store = await this.read();
-    return reviewStates(store.vaults[vaultPath]);
-  }
-
-  async review(
-    vaultPath: string,
-    relativePath: string,
-  ): Promise<MarkdownChangeReview | undefined> {
-    const store = await this.read();
-    const file = store.vaults[vaultPath]?.files[relativePath];
-    if (!file || file.current.sha256 === file.lastReviewed.sha256)
-      return undefined;
-    return {
-      changed: true,
-      changedAt: file.current.capturedAt,
-      currentText: file.current.text,
-      previousText: file.lastReviewed.text,
-      relativePath,
-    };
-  }
-
-  async markReviewed(
-    vaultPath: string,
-    relativePath: string,
-  ): Promise<DocumentReviewState[]> {
-    const store = await this.read();
-    const vault = store.vaults[vaultPath];
-    const file = vault?.files[relativePath];
-    if (file) file.lastReviewed = file.current;
-    await this.write(store);
-    return reviewStates(vault);
-  }
-
-  async recordReviewedText(
-    vaultPath: string,
-    relativePath: string,
-    text: string,
-  ): Promise<void> {
-    const store = await this.read();
-    const vault = (store.vaults[vaultPath] ??= { files: {} });
-    const content = captured(Buffer.from(text, "utf8"));
-    vault.files[relativePath] = { current: content, lastReviewed: content };
-    await this.write(store);
+  private exclusive<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(operation);
+    this.queue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private async capture(filePath: string): Promise<StoredContent | undefined> {
