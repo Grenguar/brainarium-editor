@@ -8,6 +8,7 @@ import type {
   RecentVault,
   RestoredVaultSession,
   MarkdownChangeReview,
+  PendingDocumentOpen,
   VaultDocumentContent,
   VaultImageContent,
   ImageImportResult,
@@ -53,6 +54,18 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:openRecent", id),
   restoreVaultSession: (): Promise<RestoredVaultSession> =>
     ipcRenderer.invoke("vault:restoreSession"),
+  pendingDocumentOpen: (): Promise<PendingDocumentOpen | undefined> =>
+    ipcRenderer.invoke("vault:pendingOpen"),
+  onDocumentOpened: (
+    callback: (opened: PendingDocumentOpen) => void,
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      opened: PendingDocumentOpen,
+    ) => callback(opened);
+    ipcRenderer.on("vault:openedDocument", listener);
+    return () => ipcRenderer.removeListener("vault:openedDocument", listener);
+  },
   saveVaultSession: (session: VaultSessionState): Promise<void> =>
     ipcRenderer.invoke("vault:saveSession", session),
   onVaultChanged: (
@@ -90,6 +103,8 @@ export type BrainariumApi = {
   listRecentVaults(): Promise<RecentVault[]>;
   openRecentVault(id: string): Promise<VaultSnapshot>;
   restoreVaultSession(): Promise<RestoredVaultSession>;
+  pendingDocumentOpen(): Promise<PendingDocumentOpen | undefined>;
+  onDocumentOpened(callback: (opened: PendingDocumentOpen) => void): () => void;
   saveVaultSession(session: VaultSessionState): Promise<void>;
   onVaultChanged(callback: (snapshot: VaultSnapshot) => void): () => void;
   onVaultGraphChanged(callback: (graph: VaultLinkGraph) => void): () => void;

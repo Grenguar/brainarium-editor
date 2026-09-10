@@ -1073,18 +1073,38 @@ const App = (): React.JSX.Element => {
 
   useEffect(() => {
     let cancelled = false;
-    void window.brainarium.restoreVaultSession().then(async (restored) => {
+    void (async () => {
+      // A file the operating system handed us wins over the restored session:
+      // the person double-clicked something specific, so asking main first
+      // settles the order instead of letting the two race.
+      const opened = await window.brainarium.pendingDocumentOpen();
+      if (cancelled) return;
+      if (opened) {
+        setSnapshot(opened.snapshot);
+        await readDocument(opened.relativePath, undefined, "restore");
+        return;
+      }
+      const restored = await window.brainarium.restoreVaultSession();
       if (cancelled || !restored.snapshot) return;
       scrollPositionsRef.current = restored.scrollPositions;
       setSnapshot(restored.snapshot);
       if (restored.activeDocumentPath) {
         await readDocument(restored.activeDocumentPath, undefined, "restore");
       }
-    });
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(
+    () =>
+      window.brainarium.onDocumentOpened((opened) => {
+        setSnapshot(opened.snapshot);
+        void readDocument(opened.relativePath, undefined, "restore");
+      }),
+    [],
+  );
 
   useEffect(() => {
     const relativePath = document?.relativePath;
