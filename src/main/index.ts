@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -23,7 +23,8 @@ import {
   readVaultImageDocument,
   importVaultImage,
 } from "./vault/vault-image-reader";
-import { scanVault } from "./vault/vault-scanner";
+import { isSupportedVaultDocument, scanVault } from "./vault/vault-scanner";
+import { relativePathIn, vaultForFile } from "./vault/open-target";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { readVaultPdfDocument } from "./vault/vault-pdf-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
@@ -31,6 +32,7 @@ import type {
   DocumentSaveInput,
   DocumentReviewState,
   MarkdownChangeReview,
+  PendingDocumentOpen,
   RestoredVaultSession,
   VaultImageRequest,
   VaultSessionState,
@@ -193,6 +195,99 @@ ipcMain.handle("vault:choose", async (): Promise<unknown> => {
 
   return { cancelled: false, snapshot: await openVault(result.filePaths[0]) };
 });
+
+/**
+ * macOS delivers a double-clicked file through `open-file`, which can fire
+ * before the app is ready and before any window exists. Paths are queued and
+ * handed over when the renderer asks for them, so an opened file wins over the
+ * restored session deterministically instead of racing it.
+ */
+const pendingOpenPaths: string[] = [];
+let rendererReady = false;
+
+app.on("open-file", (event, filePath) => {
+  event.preventDefault();
+  pendingOpenPaths.push(filePath);
+  void deliverPendingOpen();
+});
+
+/**
+ * Asks before adopting a folder. Double-clicking a note in a large directory
+ * would otherwise silently index everything beside it, so the choice is the
+ * owner's. The dialog is native and main-side: showing the folder to the person
+ * is not the same as handing its path to the renderer.
+ */
+async function confirmParentAsVault(
+  resolvedPath: string,
+): Promise<string | undefined> {
+  const parent = path.dirname(resolvedPath);
+  const { response } = await dialog.showMessageBox({
+    buttons: ["Open Folder as Vault", "Cancel"],
+    cancelId: 1,
+    defaultId: 0,
+    detail: `Brainarium reads one folder at a time. It will open "${path.basename(parent)}" as a vault and index the supported files inside it.`,
+    message: `Open "${path.basename(resolvedPath)}" by opening its folder?`,
+    type: "question",
+  });
+  return response === 0 ? parent : undefined;
+}
+
+async function resolveFileOpen(
+  filePath: string,
+): Promise<PendingDocumentOpen | undefined> {
+  let resolvedPath: string;
+  try {
+    resolvedPath = await realpath(filePath);
+  } catch {
+    return undefined;
+  }
+  if (!isSupportedVaultDocument(path.basename(resolvedPath))) return undefined;
+
+  const knownRoots = await Promise.all(
+    (await recentVaults().paths()).map(async (root) => {
+      try {
+        return await realpath(root);
+      } catch {
+        return undefined;
+      }
+    }),
+  );
+  const known = vaultForFile(
+    knownRoots.filter((root): root is string => root !== undefined),
+    resolvedPath,
+  );
+  const root = known ?? (await confirmParentAsVault(resolvedPath));
+  if (!root) return undefined;
+
+  const snapshot = await openVault(root);
+  const relativePath = relativePathIn(snapshot.rootPath, resolvedPath);
+  // The scanner is the authority on what is readable: a file it skipped, or one
+  // outside the resolved root, is not openable however it arrived.
+  const listed = snapshot.documents.some(
+    (document) => document.relativePath === relativePath,
+  );
+  return listed ? { relativePath, snapshot } : undefined;
+}
+
+async function deliverPendingOpen(): Promise<void> {
+  if (!rendererReady || !mainWindow) return;
+  for (const filePath of pendingOpenPaths.splice(0)) {
+    const opened = await resolveFileOpen(filePath);
+    if (opened) mainWindow?.webContents.send("vault:openedDocument", opened);
+  }
+}
+
+ipcMain.handle(
+  "vault:pendingOpen",
+  async (): Promise<PendingDocumentOpen | undefined> => {
+    rendererReady = true;
+    for (const filePath of pendingOpenPaths.splice(0)) {
+      const opened = await resolveFileOpen(filePath);
+      if (opened) return opened;
+    }
+    return undefined;
+  },
+);
 
 ipcMain.handle("app:info", (): ReturnType<typeof appInfo> => appInfo());
 
