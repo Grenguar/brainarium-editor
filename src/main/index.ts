@@ -25,7 +25,11 @@ import {
   readVaultImageDocument,
   importVaultImage,
 } from "./vault/vault-image-reader";
-import { isSupportedVaultDocument, scanVault } from "./vault/vault-scanner";
+import {
+  isSupportedVaultDocument,
+  scanSingleFile,
+  scanVault,
+} from "./vault/vault-scanner";
 import { relativePathIn, vaultForFile } from "./vault/open-target";
 import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { readVaultPdfDocument } from "./vault/vault-pdf-reader";
@@ -217,24 +221,22 @@ app.on("open-file", (event, filePath) => {
 });
 
 /**
- * Asks before adopting a folder. Double-clicking a note in a large directory
- * would otherwise silently index everything beside it, so the choice is the
- * owner's. The dialog is native and main-side: showing the folder to the person
- * is not the same as handing its path to the renderer.
+ * Opens one file on its own, with no vault behind it.
+ *
+ * Deliberately skips everything `openVault` does: the folder is not
+ * remembered as a recent vault, it is not watched, and review state is not
+ * reconciled against it. That last one matters — reconciling a one-document
+ * snapshot against a folder that has been a real vault would prune every other
+ * file's review baseline.
  */
-async function confirmParentAsVault(
+async function openLooseFile(
   resolvedPath: string,
-): Promise<string | undefined> {
-  const parent = path.dirname(resolvedPath);
-  const { response } = await dialog.showMessageBox({
-    buttons: ["Open Folder as Vault", "Cancel"],
-    cancelId: 1,
-    defaultId: 0,
-    detail: `Brainarium reads one folder at a time. It will open "${path.basename(parent)}" as a vault and index the supported files inside it.`,
-    message: `Open "${path.basename(resolvedPath)}" by opening its folder?`,
-    type: "question",
-  });
-  return response === 0 ? parent : undefined;
+): Promise<PendingDocumentOpen | undefined> {
+  const snapshot = await scanSingleFile(resolvedPath);
+  if (!snapshot) return undefined;
+  vaultWatcher?.stop();
+  activeVault = snapshot;
+  return { relativePath: snapshot.documents[0].relativePath, snapshot };
 }
 
 async function resolveFileOpen(
@@ -261,10 +263,11 @@ async function resolveFileOpen(
     knownRoots.filter((root): root is string => root !== undefined),
     resolvedPath,
   );
-  const root = known ?? (await confirmParentAsVault(resolvedPath));
-  if (!root) return undefined;
+  // No vault of yours contains it, so read just the file rather than adopting
+  // the folder it happens to sit in.
+  if (!known) return openLooseFile(resolvedPath);
 
-  const snapshot = await openVault(root);
+  const snapshot = await openVault(known);
   const relativePath = relativePathIn(snapshot.rootPath, resolvedPath);
   // The scanner is the authority on what is readable: a file it skipped, or one
   // outside the resolved root, is not openable however it arrived.
