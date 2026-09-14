@@ -4,6 +4,9 @@ const { MakerRpm } = require("@electron-forge/maker-rpm");
 const { MakerSquirrel } = require("@electron-forge/maker-squirrel");
 const { MakerZIP } = require("@electron-forge/maker-zip");
 const { WebpackPlugin } = require("@electron-forge/plugin-webpack");
+const { execFileSync } = require("node:child_process");
+const { readdirSync } = require("node:fs");
+const path = require("node:path");
 const process = require("node:process");
 
 const appDescription = "A local-first editor for the files you already trust.";
@@ -80,6 +83,39 @@ module.exports = {
         : "rust/target/release/brainarium-indexer",
     ],
     ...macOSReleaseConfig(),
+  },
+  hooks: {
+    /**
+     * Ad-hoc signs an unsigned macOS build.
+     *
+     * Without this the packaged bundle carries a linker-signed executable but
+     * no `_CodeSignature/CodeResources`, which `codesign --verify` reports as
+     * "code has no resources but signature indicates they must be present".
+     * Launching the app directly still works, so the breakage is invisible
+     * until macOS is asked to open a *quarantined* document with it — then
+     * Gatekeeper refuses and reports the document as damaged, which sends you
+     * looking in entirely the wrong place.
+     *
+     * This is not notarization and does not pretend to be: `spctl` still
+     * rejects an ad-hoc signature. It only makes the bundle self-consistent.
+     * Signed release builds set BRAINARIUM_SIGN_MACOS and are skipped.
+     */
+    postPackage: async (_forgeConfig, options) => {
+      if (options.platform !== "darwin") return;
+      if (process.env.BRAINARIUM_SIGN_MACOS === "true") return;
+
+      for (const outputPath of options.outputPaths) {
+        const bundle = readdirSync(outputPath).find((entry) =>
+          entry.endsWith(".app"),
+        );
+        if (!bundle) continue;
+        execFileSync(
+          "codesign",
+          ["--force", "--deep", "--sign", "-", path.join(outputPath, bundle)],
+          { stdio: "inherit" },
+        );
+      }
+    },
   },
   rebuildConfig: {},
   makers: [
