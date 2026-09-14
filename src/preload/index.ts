@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 
 import type {
   BrainariumAppInfo,
+  DocumentExportRequest,
+  DocumentExportResult,
   DocumentSaveInput,
   DocumentSaveResult,
   DocumentReviewState,
@@ -79,6 +81,12 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("vault:search", query),
   reviewStates: (): Promise<DocumentReviewState[]> =>
     ipcRenderer.invoke("vault:reviewStates"),
+  markAllReviewed: (): Promise<DocumentReviewState[]> =>
+    ipcRenderer.invoke("vault:markAllReviewed"),
+  exportDocumentPdf: (
+    request: DocumentExportRequest,
+  ): Promise<DocumentExportResult> =>
+    ipcRenderer.invoke("document:exportPdf", request),
 });
 
 export type BrainariumApi = {
@@ -99,6 +107,10 @@ export type BrainariumApi = {
   changeReview(relativePath: string): Promise<MarkdownChangeReview | undefined>;
   markReviewed(relativePath: string): Promise<DocumentReviewState[]>;
   searchVault(query: string): Promise<VaultSearchResult[]>;
+  exportDocumentPdf(
+    request: DocumentExportRequest,
+  ): Promise<DocumentExportResult>;
+  markAllReviewed(): Promise<DocumentReviewState[]>;
   reviewStates(): Promise<DocumentReviewState[]>;
   readDocument(relativePath: string): Promise<VaultDocumentContent>;
   saveDocument(input: DocumentSaveInput): Promise<DocumentSaveResult>;

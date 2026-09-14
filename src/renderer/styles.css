@@ -497,6 +497,20 @@ h1 {
   width: 0.48rem;
 }
 
+.tree-directory .tree-change-count {
+  background: var(--br-accent, #d86d45);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1rem;
+  margin-left: 0.45rem;
+  min-width: 1.1rem;
+  padding: 0 0.28rem;
+  text-align: center;
+}
+
 .recent-vaults {
   margin-top: 3rem;
 }
@@ -2076,6 +2090,85 @@ kbd {
 .vault-search-trigger kbd {
   color: var(--br-muted);
   margin-left: auto;
+}
+
+.library-navigation .library-change-count {
+  background: var(--br-accent, #d86d45);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1rem;
+  margin-left: 0.45rem;
+  min-width: 1.1rem;
+  padding: 0 0.28rem;
+  text-align: center;
+}
+
+.changes-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 2rem;
+}
+
+.changes-scope {
+  color: var(--br-muted);
+  font-size: 0.85rem;
+  margin: 0 1.5rem 1rem;
+  max-width: 68ch;
+}
+
+.changes-empty {
+  color: var(--br-muted);
+  margin: 0 1.5rem;
+}
+
+.changes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0 1.5rem;
+}
+
+.changes-row {
+  border: 1px solid var(--br-border);
+  border-radius: 0.6rem;
+  padding: 0.85rem 1rem;
+}
+
+.changes-row-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.changes-row-open {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+}
+
+.changes-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.changes-row-time,
+.changes-row-loading {
+  color: var(--br-muted);
+  font-size: 0.85rem;
 }
 
 .ui-icon {
