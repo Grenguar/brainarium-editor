@@ -67,6 +67,16 @@ export type DocumentSaveResult =
     }
   | { relativePath: string; status: "missing" };
 
+/**
+ * A document the operating system asked Brainarium to open — a double-clicked
+ * file, resolved to a vault before the renderer ever sees it. The renderer
+ * receives the snapshot and a vault-relative path, never the original path.
+ */
+export type PendingDocumentOpen = {
+  relativePath: string;
+  snapshot: VaultSnapshot;
+};
+
 /** A narrowly-scoped local image request made by the rendered Markdown view. */
 /**
  * The renderer asks for an export by path only. It supplies neither markup nor

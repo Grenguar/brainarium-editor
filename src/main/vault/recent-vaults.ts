@@ -23,6 +23,11 @@ export class RecentVaultStore {
     return (await this.read()).find((recent) => recent.id === id)?.path;
   }
 
+  /** Main-process only: absolute roots, used to place a file in a known vault. */
+  async paths(): Promise<string[]> {
+    return (await this.read()).map((recent) => recent.path);
+  }
+
   async remember(vaultPath: string): Promise<void> {
     const existing = await this.read();
     const next: StoredRecentVault = {

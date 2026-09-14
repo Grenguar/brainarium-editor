@@ -51,6 +51,29 @@ module.exports = {
     executableName: "brainarium",
     // Extension omitted so packager picks .icns on macOS / .ico on Windows.
     icon: "./assets/icon",
+    // Declares which documents Brainarium can open. This makes it eligible in
+    // Finder's Open With list; macOS still requires the person to choose it as
+    // the default. Rank is Alternate because Brainarium does not own either
+    // format — they are plain files that many editors handle.
+    // Windows and Linux associations are not wired yet.
+    extendInfo: {
+      CFBundleDocumentTypes: [
+        {
+          CFBundleTypeExtensions: ["md", "markdown"],
+          CFBundleTypeName: "Markdown Document",
+          CFBundleTypeRole: "Editor",
+          LSHandlerRank: "Alternate",
+          LSItemContentTypes: ["net.daringfireball.markdown"],
+        },
+        {
+          CFBundleTypeExtensions: ["csv"],
+          CFBundleTypeName: "Comma-Separated Values",
+          CFBundleTypeRole: "Editor",
+          LSHandlerRank: "Alternate",
+          LSItemContentTypes: ["public.comma-separated-values-text"],
+        },
+      ],
+    },
     extraResource: [
       process.platform === "win32"
         ? "rust/target/release/brainarium-indexer.exe"
