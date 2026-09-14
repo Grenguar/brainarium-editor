@@ -1326,6 +1326,26 @@ const App = (): React.JSX.Element => {
     }
   };
 
+  /**
+   * Deleting is deliberately recoverable: main moves the file to the Trash and
+   * never unlinks it. The watcher reconciles the tree and the open document, so
+   * nothing here needs to reach into session state.
+   */
+  const moveDocumentToTrash = async (relativePath: string): Promise<void> => {
+    const confirmed = window.confirm(
+      `Move "${relativePath}" to the Trash?\n\nYou can restore it from the Trash. Brainarium will not delete it permanently.`,
+    );
+    if (!confirmed) return;
+    try {
+      const result = await window.brainarium.moveDocumentToTrash(relativePath);
+      if (result.status === "missing") {
+        setError("That file is no longer part of this vault.");
+      }
+    } catch {
+      setError("Brainarium could not move that file to the Trash.");
+    }
+  };
+
   const copyDocumentPath = async (relativePath: string): Promise<void> => {
     try {
       await window.brainarium.copyDocumentPath(relativePath);
@@ -2618,6 +2638,18 @@ const App = (): React.JSX.Element => {
               }}
             >
               Export to PDF…
+            </button>
+            <button
+              className="menuitem-destructive"
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                const target = fileContextMenu.relativePath;
+                setFileContextMenu(undefined);
+                void moveDocumentToTrash(target);
+              }}
+            >
+              Move to Trash…
             </button>
           </div>
         )}

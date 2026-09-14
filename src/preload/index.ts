@@ -7,6 +7,7 @@ import type {
   DocumentSaveInput,
   DocumentSaveResult,
   DocumentReviewState,
+  DocumentTrashResult,
   RecentVault,
   RestoredVaultSession,
   MarkdownChangeReview,
@@ -50,6 +51,8 @@ contextBridge.exposeInMainWorld("brainarium", {
     ipcRenderer.invoke("document:copyContent", relativePath),
   copyDocumentPath: (relativePath: string): Promise<void> =>
     ipcRenderer.invoke("document:copyPath", relativePath),
+  moveDocumentToTrash: (relativePath: string): Promise<DocumentTrashResult> =>
+    ipcRenderer.invoke("document:moveToTrash", relativePath),
   listRecentVaults: (): Promise<RecentVault[]> =>
     ipcRenderer.invoke("vault:listRecent"),
   openRecentVault: (id: string): Promise<VaultSnapshot> =>
@@ -107,6 +110,7 @@ export type BrainariumApi = {
   chooseVault(): Promise<ChooseVaultResult>;
   copyDocumentContent(relativePath: string): Promise<void>;
   copyDocumentPath(relativePath: string): Promise<void>;
+  moveDocumentToTrash(relativePath: string): Promise<DocumentTrashResult>;
   buildVaultLinkGraph(): Promise<VaultLinkGraph>;
   listRecentVaults(): Promise<RecentVault[]>;
   openRecentVault(id: string): Promise<VaultSnapshot>;
