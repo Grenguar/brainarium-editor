@@ -216,3 +216,45 @@ export async function scanVault(selectedRoot: string): Promise<VaultSnapshot> {
 export function isSupportedVaultDocument(fileName: string): boolean {
   return documentKind(fileName) !== undefined;
 }
+
+/**
+ * Builds a snapshot holding exactly one file, rooted at its parent folder.
+ *
+ * Opening a loose file must not index everything beside it, so nothing is
+ * walked. The parent is the root only so the existing containment checks have
+ * something to resolve against; `documents` lists that single file and nothing
+ * else, which is what keeps every reader working unchanged.
+ */
+export async function scanSingleFile(
+  filePath: string,
+): Promise<VaultSnapshot | undefined> {
+  const resolvedPath = await realpath(filePath);
+  const name = path.basename(resolvedPath);
+  const kind = documentKind(name);
+  if (!kind) return undefined;
+
+  const stats = await stat(resolvedPath);
+  if (!stats.isFile()) return undefined;
+
+  const rootPath = await realpath(path.dirname(resolvedPath));
+  const document: VaultDocument = {
+    kind,
+    mtimeMs: stats.mtimeMs,
+    name,
+    relativePath: name,
+    size: stats.size,
+    title: titleFromFileName(name),
+  };
+
+  return {
+    documents: [document],
+    issues: [],
+    rootPath,
+    tree: {
+      children: [document],
+      kind: "directory",
+      name: path.basename(rootPath),
+      relativePath: "",
+    },
+  };
+}
