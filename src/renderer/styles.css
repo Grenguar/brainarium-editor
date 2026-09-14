@@ -2485,3 +2485,10 @@ kbd {
     gap: 0.3rem;
   }
 }
+
+.file-context-menu .menuitem-destructive {
+  border-top: 1px solid var(--br-border);
+  color: var(--br-accent-strong, #843b28);
+  margin-top: 0.2rem;
+  padding-top: 0.45rem;
+}

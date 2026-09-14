@@ -77,6 +77,15 @@ export type PendingDocumentOpen = {
   snapshot: VaultSnapshot;
 };
 
+/**
+ * Moving a file to the Trash is recoverable by design: Brainarium never
+ * unlinks vault content. A file that has already gone is reported as missing
+ * rather than failing, mirroring DocumentSaveResult.
+ */
+export type DocumentTrashResult =
+  | { relativePath: string; status: "trashed" }
+  | { relativePath: string; status: "missing" };
+
 /** A narrowly-scoped local image request made by the rendered Markdown view. */
 /**
  * The renderer asks for an export by path only. It supplies neither markup nor

@@ -15,6 +15,7 @@ import squirrelStartup from "electron-squirrel-startup";
 import { exportDocumentToPdf } from "./export/document-pdf-export";
 import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { validatedExternalUrl } from "./security/external-links";
+import { isPathInside } from "./security/vault-paths";
 import { RecentVaultStore } from "./vault/recent-vaults";
 import { VaultSessionStore } from "./vault/vault-session-state";
 import { VaultReviewStore } from "./vault/vault-review-store";
@@ -34,6 +35,7 @@ import type {
   DocumentExportResult,
   DocumentSaveInput,
   DocumentReviewState,
+  DocumentTrashResult,
   MarkdownChangeReview,
   PendingDocumentOpen,
   RestoredVaultSession,
@@ -433,6 +435,42 @@ ipcMain.handle(
       throw new Error("Open a vault before marking its changes reviewed.");
     }
     return vaultReviews().markAllReviewed(activeVault.rootPath);
+  },
+);
+
+/**
+ * Moves one scanned vault file to the Trash.
+ *
+ * The vault's own document list is the allowlist, and the path is re-resolved
+ * and re-checked for containment afterwards, so a symlink swapped in after the
+ * scan cannot redirect the delete outside the vault. Nothing is ever unlinked:
+ * `shell.trashItem` keeps the action recoverable, and the watcher reconciles
+ * the tree and the open document on its own.
+ */
+ipcMain.handle(
+  "document:moveToTrash",
+  async (_event, relativePath: unknown): Promise<DocumentTrashResult> => {
+    if (!activeVault || typeof relativePath !== "string") {
+      throw new Error("Open a vault before moving a file to the Trash.");
+    }
+    const listed = activeVault.documents.some(
+      (candidate) => candidate.relativePath === relativePath,
+    );
+    if (!listed) return { relativePath, status: "missing" };
+
+    const rootPath = await realpath(activeVault.rootPath);
+    let resolvedPath: string;
+    try {
+      resolvedPath = await realpath(path.join(rootPath, relativePath));
+    } catch {
+      return { relativePath, status: "missing" };
+    }
+    if (!isPathInside(rootPath, resolvedPath)) {
+      return { relativePath, status: "missing" };
+    }
+
+    await shell.trashItem(resolvedPath);
+    return { relativePath, status: "trashed" };
   },
 );
 
