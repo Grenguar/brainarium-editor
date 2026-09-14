@@ -67,6 +67,37 @@ export type DocumentSaveResult =
     }
   | { relativePath: string; status: "missing" };
 
+/**
+ * State of the opt-in read-only vault server.
+ *
+ * The port is loopback-only; reaching it from another device is left to
+ * `tailscale serve`, so no externally reachable socket is ever opened. The
+ * pairing code is shown once in the app and typed on the reading device.
+ */
+export type VaultServeStatus =
+  { code: string; port: number; running: true } | { running: false };
+
+/**
+ * The renderer asks for an export by path only. It supplies neither markup nor
+ * a destination: the main process re-reads the saved document, builds the
+ * printable HTML itself, and asks the user where to write the result.
+ */
+export type DocumentExportRequest = {
+  relativePath: string;
+};
+
+/**
+ * Expected outcomes are values, not thrown errors, mirroring
+ * DocumentSaveResult. Only an operational failure (an unwritable target, a
+ * print that never completes) rejects.
+ */
+export type DocumentExportResult =
+  | { fileName: string; status: "exported" }
+  | { status: "busy" }
+  | { status: "cancelled" }
+  | { kind: DocumentKind; status: "unsupported" }
+  | { relativePath: string; status: "missing" };
+
 /** A narrowly-scoped local image request made by the rendered Markdown view. */
 export type VaultImageRequest = {
   assetPath: string;

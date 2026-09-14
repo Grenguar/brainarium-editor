@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectDelimiter, parseCsv, toCsvTable } from "./csv-preview";
+import { detectDelimiter, parseCsv, toCsvTable } from "./csv";
 
 describe("parseCsv", () => {
   it("preserves commas, escaped quotes, and newlines in quoted values", () => {

@@ -12,6 +12,8 @@ import {
 } from "electron";
 import squirrelStartup from "electron-squirrel-startup";
 
+import { exportDocumentToPdf } from "./export/document-pdf-export";
+import { VaultServer } from "./serve/vault-server";
 import { RustIndexerService } from "./indexer/rust-indexer-service";
 import { validatedExternalUrl } from "./security/external-links";
 import { RecentVaultStore } from "./vault/recent-vaults";
@@ -28,6 +30,9 @@ import { readVaultDocument, saveVaultDocument } from "./vault/vault-reader";
 import { readVaultPdfDocument } from "./vault/vault-pdf-reader";
 import { VaultWatcher } from "./vault/vault-watcher";
 import type {
+  DocumentExportRequest,
+  DocumentExportResult,
+  VaultServeStatus,
   DocumentSaveInput,
   DocumentReviewState,
   MarkdownChangeReview,
@@ -45,6 +50,7 @@ let vaultWatcher: VaultWatcher | undefined;
 let graphRebuildGeneration = 0;
 let vaultSessionStore: VaultSessionStore | undefined;
 let vaultReviewStore: VaultReviewStore | undefined;
+let vaultServer: VaultServer | undefined;
 
 const appDescription = "A local-first editor for the files you already trust.";
 
@@ -318,6 +324,53 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "document:exportPdf",
+  async (_event, request: unknown): Promise<DocumentExportResult> => {
+    if (!activeVault || !isDocumentExportRequest(request)) {
+      throw new Error("Open a document before exporting it to PDF.");
+    }
+    return exportDocumentToPdf(activeVault, request.relativePath, mainWindow);
+  },
+);
+
+ipcMain.handle(
+  "vault:markAllReviewed",
+  async (): Promise<DocumentReviewState[]> => {
+    if (!activeVault) {
+      throw new Error("Open a vault before marking its changes reviewed.");
+    }
+    return vaultReviews().markAllReviewed(activeVault.rootPath);
+  },
+);
+
+/**
+ * Reading the vault on another device is off until asked for, and stays bound
+ * to loopback when it is. Publishing that port onto a tailnet is a deliberate
+ * step the owner takes outside the app with `tailscale serve`.
+ */
+const serveStatus = (): VaultServeStatus => {
+  const address = vaultServer?.address;
+  return address
+    ? { code: address.code, port: address.port, running: true }
+    : { running: false };
+};
+
+ipcMain.handle("vault:serveStatus", (): VaultServeStatus => serveStatus());
+
+ipcMain.handle("vault:serveStart", async (): Promise<VaultServeStatus> => {
+  if (!activeVault) throw new Error("Open a vault before sharing it to read.");
+  vaultServer ??= new VaultServer(() => activeVault);
+  await vaultServer.start();
+  return serveStatus();
+});
+
+ipcMain.handle("vault:serveStop", async (): Promise<VaultServeStatus> => {
+  await vaultServer?.stop();
+  vaultServer = undefined;
+  return serveStatus();
+});
+
 ipcMain.handle("vault:linkGraph", async (): Promise<unknown> => {
   if (!activeVault) throw new Error("Open a vault before viewing its graph.");
   return indexer().build(activeVault);
@@ -482,6 +535,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   vaultWatcher?.stop();
+  void vaultServer?.stop();
 });
 
 function isSaveInput(value: unknown): value is DocumentSaveInput {
@@ -490,6 +544,13 @@ function isSaveInput(value: unknown): value is DocumentSaveInput {
   return ["baseVersion", "relativePath", "text"].every(
     (key) => typeof input[key] === "string",
   );
+}
+
+function isDocumentExportRequest(
+  value: unknown,
+): value is DocumentExportRequest {
+  if (!value || typeof value !== "object") return false;
+  return typeof (value as Record<string, unknown>).relativePath === "string";
 }
 
 function isVaultImageRequest(value: unknown): value is VaultImageRequest {
