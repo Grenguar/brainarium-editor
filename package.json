@@ -74,7 +74,7 @@
     "graphology-layout-forceatlas2": "0.10.1",
     "hast-util-sanitize": "5.0.2",
     "mdast-util-find-and-replace": "3.0.2",
-    "pdfjs-dist": "5.4.530",
+    "pdfjs-dist": "6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "10.1.0",
