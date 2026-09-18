@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -123,5 +123,44 @@ describe("VaultReviewStore", () => {
     const store = new VaultReviewStore(storage);
 
     await expect(store.markAllReviewed("/nowhere")).resolves.toEqual([]);
+  });
+
+  it("skips a note whose mtime and size still match its stored baseline", async () => {
+    const root = await temporaryDirectory();
+    const note = path.join(root, "plan.md");
+    const storage = path.join(await temporaryDirectory(), "review.json");
+    // A fixed timestamp keeps the sub-millisecond part of `mtimeMs` exact, so
+    // the assertion is about the skip rather than about clock precision.
+    const capturedAt = new Date(1_700_000_000_000);
+    await writeFile(note, "aaaa\n");
+    await utimes(note, capturedAt, capturedAt);
+
+    const store = new VaultReviewStore(storage);
+    await store.reconcile(await scanVault(root));
+
+    // Same byte count restored to the same mtime: noticing the substituted
+    // bytes would mean the note was read again instead of being skipped.
+    await writeFile(note, "bbbb\n");
+    await utimes(note, capturedAt, capturedAt);
+    await expect(store.reconcile(await scanVault(root))).resolves.toEqual([]);
+
+    // Moving the mtime alone is enough to bring the note back into the read.
+    const movedOn = new Date(1_700_000_060_000);
+    await utimes(note, movedOn, movedOn);
+    await expect(store.reconcile(await scanVault(root))).resolves.toEqual([
+      expect.objectContaining({ changed: true, relativePath: "plan.md" }),
+    ]);
+  });
+
+  it("stores the text of an unchanged note once", async () => {
+    const root = await temporaryDirectory();
+    const storage = path.join(await temporaryDirectory(), "review.json");
+    const line = "A distinctive baseline line.";
+    await writeFile(path.join(root, "plan.md"), `${line}\n`);
+
+    await new VaultReviewStore(storage).reconcile(await scanVault(root));
+
+    const stored = await readFile(storage, "utf8");
+    expect(stored.split(line).length - 1).toBe(1);
   });
 });

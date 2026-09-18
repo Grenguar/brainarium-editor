@@ -159,9 +159,14 @@ async function openVault(
   const snapshot = await scanVault(vaultPath);
   await recentVaults().remember(snapshot.rootPath);
   await vaultSessions().rememberVault(snapshot.rootPath);
-  await vaultReviews().reconcile(snapshot);
   activeVault = snapshot;
   vaultWatcher?.start(snapshot);
+  // Reconciling reads every Markdown note, so the vault must not wait on it.
+  // The review store serializes its own work, so the renderer's later
+  // `vault:reviewStates` call queues behind this and still sees a full baseline.
+  void vaultReviews()
+    .reconcile(snapshot)
+    .catch(() => undefined);
   return snapshot;
 }
 
@@ -619,10 +624,12 @@ app.whenReady().then(() => {
   });
   vaultWatcher = new VaultWatcher(async (snapshot) => {
     const previousSnapshot = activeVault;
-    await vaultReviews().reconcile(snapshot);
     activeVault = snapshot;
     mainWindow?.webContents.send("vault:changed", snapshot);
     void refreshCachedGraphAfterMarkdownChange(previousSnapshot, snapshot);
+    // Awaited last, so the file tree updates immediately and the watcher still
+    // treats a long reconciliation as backpressure on the next pass.
+    await vaultReviews().reconcile(snapshot);
   });
   createWindow();
 

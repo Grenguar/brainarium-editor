@@ -5,6 +5,7 @@ import path from "node:path";
 import type {
   DocumentReviewState,
   MarkdownChangeReview,
+  VaultDocument,
   VaultSnapshot,
 } from "../../shared/contracts/vault";
 
@@ -13,7 +14,10 @@ const STORE_VERSION = 1;
 
 type StoredContent = {
   capturedAt: number;
+  /** Stat identity of the bytes this was captured from, when it is known. */
+  mtimeMs?: number;
   sha256: string;
+  size?: number;
   text?: string;
 };
 
@@ -71,7 +75,7 @@ export class VaultReviewStore {
       return {
         changed: true,
         changedAt: file.current.capturedAt,
-        currentText: file.current.text,
+        currentText: currentTextOf(file),
         previousText: file.lastReviewed.text,
         relativePath,
       };
@@ -86,7 +90,12 @@ export class VaultReviewStore {
       const store = await this.read();
       const vault = store.vaults[vaultPath];
       const file = vault?.files[relativePath];
-      if (file) file.lastReviewed = file.current;
+      if (vault && file) {
+        vault.files[relativePath] = dedupedText({
+          current: file.current,
+          lastReviewed: file.current,
+        });
+      }
       await this.write(store);
       return reviewStates(vault);
     });
@@ -101,8 +110,11 @@ export class VaultReviewStore {
       const store = await this.read();
       const vault = store.vaults[vaultPath];
       if (!vault) return [];
-      for (const file of Object.values(vault.files)) {
-        file.lastReviewed = file.current;
+      for (const [relativePath, file] of Object.entries(vault.files)) {
+        vault.files[relativePath] = dedupedText({
+          current: file.current,
+          lastReviewed: file.current,
+        });
       }
       await this.write(store);
       return reviewStates(vault);
@@ -118,7 +130,10 @@ export class VaultReviewStore {
       const store = await this.read();
       const vault = (store.vaults[vaultPath] ??= { files: {} });
       const content = captured(Buffer.from(text, "utf8"));
-      vault.files[relativePath] = { current: content, lastReviewed: content };
+      vault.files[relativePath] = dedupedText({
+        current: content,
+        lastReviewed: content,
+      });
       await this.write(store);
     });
   }
@@ -140,18 +155,36 @@ export class VaultReviewStore {
     }
 
     for (const document of markdown) {
+      const existing = vault.files[document.relativePath];
+      // Re-reading and hashing every note dominates the cost of opening a large
+      // vault. The scanner has already stat-ed each file, and a baseline
+      // captured from that same mtime and size cannot have gone stale.
+      if (existing && isCapturedFrom(existing.current, document)) continue;
+
       const content = await this.capture(
         path.join(snapshot.rootPath, document.relativePath),
+        document,
       );
       if (!content) continue;
-      const existing = vault.files[document.relativePath];
       if (!existing) {
-        vault.files[document.relativePath] = {
+        vault.files[document.relativePath] = dedupedText({
           current: content,
           lastReviewed: content,
-        };
+        });
       } else if (existing.current.sha256 !== content.sha256) {
         existing.current = content;
+      } else {
+        // Same bytes behind a new mtime — a touch, or a store written before
+        // stat identity was recorded. Adopt it so the next open can skip the
+        // read without changing what counts as reviewed.
+        vault.files[document.relativePath] = dedupedText({
+          current: {
+            ...existing.current,
+            mtimeMs: document.mtimeMs,
+            size: document.size,
+          },
+          lastReviewed: existing.lastReviewed,
+        });
       }
     }
 
@@ -168,9 +201,12 @@ export class VaultReviewStore {
     return result;
   }
 
-  private async capture(filePath: string): Promise<StoredContent | undefined> {
+  private async capture(
+    filePath: string,
+    document?: VaultDocument,
+  ): Promise<StoredContent | undefined> {
     try {
-      return captured(await readFile(filePath));
+      return captured(await readFile(filePath), document);
     } catch {
       return undefined;
     }
@@ -199,16 +235,49 @@ export class VaultReviewStore {
   }
 }
 
-function captured(bytes: Buffer): StoredContent {
+function captured(bytes: Buffer, document?: VaultDocument): StoredContent {
   const now = Date.now();
   return {
     capturedAt: now,
+    mtimeMs: document?.mtimeMs,
     sha256: sha256(bytes),
+    size: document?.size,
     text:
       bytes.byteLength <= MAX_SNAPSHOT_BYTES
         ? new TextDecoder("utf-8", { fatal: true }).decode(bytes)
         : undefined,
   };
+}
+
+/**
+ * True when a stored baseline was captured from exactly the bytes the scanner
+ * just saw. A store written before stat identity was recorded has no mtime and
+ * is always re-read once, which rebuilds it in place.
+ */
+function isCapturedFrom(
+  content: StoredContent,
+  document: VaultDocument,
+): boolean {
+  return content.mtimeMs === document.mtimeMs && content.size === document.size;
+}
+
+/**
+ * Holds one copy of the text while both sides share the same bytes. Storing it
+ * on each side doubled the store for vaults where almost nothing has changed.
+ */
+function dedupedText(file: StoredFileReview): StoredFileReview {
+  if (file.current.sha256 !== file.lastReviewed.sha256) return file;
+  const current = { ...file.current };
+  delete current.text;
+  return { current, lastReviewed: file.lastReviewed };
+}
+
+/** The current text, which `dedupedText` may have left on the baseline. */
+function currentTextOf(file: StoredFileReview): string | undefined {
+  if (file.current.text !== undefined) return file.current.text;
+  return file.current.sha256 === file.lastReviewed.sha256
+    ? file.lastReviewed.text
+    : undefined;
 }
 
 function reviewStates(

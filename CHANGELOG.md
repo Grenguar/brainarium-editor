@@ -12,6 +12,7 @@ All notable Brainarium changes are documented here, following the structure of [
 ### Fixed
 
 - Serialize review-store writes so a watcher reconciliation can no longer overwrite a note you just marked reviewed.
+- Open large vaults without a long unresponsive pause. Review reconciliation no longer blocks the vault from opening, skips notes whose modification time and size are unchanged instead of re-reading every file, and keeps one copy of an unchanged note's text rather than two. Overlapping watcher reconciliations now collapse into a single pass, so a vault edited by other tools cannot build a backlog of scans.
 
 ## [0.1.7] - 2026-08-30
 

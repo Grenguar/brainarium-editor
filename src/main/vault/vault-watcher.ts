@@ -21,7 +21,9 @@ export class VaultWatcher {
   private generation = 0;
   private lastFingerprint: string | undefined;
   private reconcileTimer: NodeJS.Timeout | undefined;
+  private refreshPending = false;
   private refreshTimer: NodeJS.Timeout | undefined;
+  private refreshingGeneration: number | undefined;
   private watcher: FSWatcher | undefined;
 
   constructor(
@@ -66,6 +68,7 @@ export class VaultWatcher {
     this.watcher = undefined;
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
     if (this.reconcileTimer) clearInterval(this.reconcileTimer);
+    this.refreshPending = false;
     this.lastFingerprint = undefined;
     this.refreshTimer = undefined;
     this.reconcileTimer = undefined;
@@ -80,20 +83,40 @@ export class VaultWatcher {
     }, this.options.debounceMs ?? 350);
   }
 
+  /**
+   * Handling a snapshot can outlast the reconciliation interval on a large
+   * vault, because it re-reads every changed note. Overlapping passes are
+   * collapsed into a single follow-up rather than stacked, so a vault under
+   * steady external edits cannot build an unbounded backlog of scans.
+   */
   private async refresh(rootPath: string, generation: number): Promise<void> {
     if (generation !== this.generation) return;
+    if (this.refreshingGeneration === generation) {
+      this.refreshPending = true;
+      return;
+    }
+
+    this.refreshingGeneration = generation;
     try {
-      const snapshot = await this.scan(rootPath);
-      if (
-        generation === this.generation &&
-        this.lastFingerprint !== snapshotFingerprint(snapshot)
-      ) {
-        this.lastFingerprint = snapshotFingerprint(snapshot);
-        await this.onSnapshot(snapshot);
+      do {
+        this.refreshPending = false;
+        try {
+          const snapshot = await this.scan(rootPath);
+          if (generation !== this.generation) return;
+          const fingerprint = snapshotFingerprint(snapshot);
+          if (this.lastFingerprint === fingerprint) continue;
+          this.lastFingerprint = fingerprint;
+          await this.onSnapshot(snapshot);
+        } catch {
+          // A transient external rename or permissions change should not tear
+          // down the active workspace. The next native event or reconciliation
+          // retries it.
+        }
+      } while (this.refreshPending && generation === this.generation);
+    } finally {
+      if (this.refreshingGeneration === generation) {
+        this.refreshingGeneration = undefined;
       }
-    } catch {
-      // A transient external rename or permissions change should not tear down
-      // the active workspace. The next native event/reconciliation retries it.
     }
   }
 }
